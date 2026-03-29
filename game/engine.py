@@ -30,14 +30,17 @@ class Game:
     def __init__(self):
         pygame.init()
         pygame.mixer.init(frequency=22050, size=-16, channels=2, buffer=512)
-        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+        # Abrir em tela cheia e manter tamanho atual
+        self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         pygame.display.set_caption(TITLE)
         self.clock = pygame.time.Clock()
         self.running = True
+        self.fullscreen = True
+        self.screen_w, self.screen_h = self.screen.get_size()
 
         # Systems
         self.renderer = Renderer()
-        self.ui = UI(SCREEN_WIDTH, SCREEN_HEIGHT)
+        self.ui = UI(self.screen_w, self.screen_h)
         self.effects = EffectsManager()
 
         # Sound effects (generated procedurally)
@@ -199,6 +202,11 @@ class Game:
     def _handle_key(self, key):
         """Handle key press based on state."""
 
+        # Toggle fullscreen: F11
+        if key == pygame.K_F11:
+            self._toggle_fullscreen()
+            return
+
         if self.state == STATE_MENU:
             if key == pygame.K_UP:
                 self.menu_selection = (self.menu_selection - 1) % 4
@@ -286,6 +294,18 @@ class Game:
                 self.new_game()
             elif key == pygame.K_ESCAPE:
                 self.state = STATE_MENU
+
+    def _toggle_fullscreen(self):
+        """Alterna fullscreen e atualiza as dimensões de tela e UI."""
+        if self.fullscreen:
+            self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+            self.fullscreen = False
+        else:
+            self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+            self.fullscreen = True
+
+        self.screen_w, self.screen_h = self.screen.get_size()
+        self.ui = UI(self.screen_w, self.screen_h)
 
     def _update(self):
         """Update game logic."""
