@@ -171,7 +171,8 @@ class Renderer:
         effects.draw(gs, cx, cy, 1.0, font_sm)
 
         # ── Scale up to screen ──
-        scaled = pygame.transform.scale(gs, (SCREEN_WIDTH, SCREEN_HEIGHT))
+        screen_w, screen_h = screen.get_size()
+        scaled = pygame.transform.scale(gs, (screen_w, screen_h))
         screen.blit(scaled, (shake_offset[0], shake_offset[1]))
 
     def world_to_screen(self, wx, wy):
