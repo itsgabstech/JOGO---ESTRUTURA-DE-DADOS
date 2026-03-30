@@ -24,6 +24,7 @@ STATE_GAME_OVER = 4
 STATE_UPGRADE = 5
 STATE_INSTRUCTIONS = 6
 STATE_SETTINGS = 7
+STATE_PHASE2 = 8
 
 
 class Game:
@@ -67,6 +68,12 @@ class Game:
 
         # Combat mode setting
         self.combat_mode = COMBAT_AUTO
+
+        # Phase progression
+        self.phase = 1
+        self.phase_message_timer = 0
+        self.phase_message_text = ""
+        self.phase_message_subtext = ""
 
         # Hide system cursor during gameplay
         self.custom_cursor = True
@@ -178,6 +185,10 @@ class Game:
         self.spawner = EnemySpawner()
         self.effects = EffectsManager()
         self.game_time = 0
+        self.phase = 1
+        self.phase_message_timer = 0
+        self.phase_message_text = ""
+        self.phase_message_subtext = ""
         self.state = STATE_PLAYING
 
     def run(self):
@@ -256,6 +267,12 @@ class Game:
                 self.state = STATE_PLAYING
             elif key == pygame.K_m:
                 self.state = STATE_MENU
+
+        elif self.state == STATE_PHASE2:
+            if key == pygame.K_RETURN:
+                self.state = STATE_PLAYING
+                self.phase_message_text = ""
+                self.phase_message_subtext = ""
 
         elif self.state == STATE_INVENTORY:
             if key in (pygame.K_i, pygame.K_ESCAPE):
@@ -371,6 +388,17 @@ class Game:
                         self.player.kills += 1
                         self.effects.spawn_death_particles(enemy.x, enemy.y)
                         self.effects.shake(2, 4)
+                        # Phase 2 trigger at 20 kills
+                        if self.player.kills >= 20 and self.phase == 1:
+                            self.phase = 2
+                            self.phase_message_text = "VOCÊ ENTROU NA FASE 2!"
+                            self.phase_message_subtext = "BOA SORTE!!"
+                            self.phase_message_timer = 0
+                            self.state = STATE_PHASE2
+                            if hasattr(self.spawner, 'phase_multiplier'):
+                                self.spawner.phase_multiplier = 2
+                            self.play_sound('levelup')
+
                         # Roll loot
                         loot = roll_loot(enemy.x, enemy.y)
                         if loot:
@@ -417,6 +445,10 @@ class Game:
         # Update camera
         self.renderer.update_camera(self.player.x, self.player.y)
 
+        # Phase message timer
+        if self.phase_message_timer > 0:
+            self.phase_message_timer -= 1
+
         # Game time
         self.game_time += 1
 
@@ -443,8 +475,9 @@ class Game:
         elif self.state == STATE_INSTRUCTIONS:
             self.ui.draw_instructions(self.screen)
 
-        elif self.state in (STATE_PLAYING, STATE_INVENTORY,
-                            STATE_PAUSED, STATE_UPGRADE, STATE_GAME_OVER):
+        elif self.state in (STATE_PLAYING, STATE_PHASE2,
+                            STATE_INVENTORY, STATE_PAUSED,
+                            STATE_UPGRADE, STATE_GAME_OVER):
             # Draw world
             shake = self.effects.get_shake_offset()
             self.renderer.draw_world(
@@ -455,7 +488,36 @@ class Game:
             # Draw HUD
             enemy_count = len([e for e in self.enemies if e.alive])
             self.ui.draw_hud(self.screen, self.player,
-                             self.game_time, enemy_count)
+                             self.game_time, enemy_count, self.phase)
+
+            # Phase 2 message (pause state)
+            if self.state == STATE_PHASE2 and self.phase_message_text:
+                title_font = pygame.font.SysFont('consolas', 36, bold=True)
+                sub_font = pygame.font.SysFont('consolas', 24, bold=True)
+                title = title_font.render(self.phase_message_text, True, UI_GOLD)
+                subtitle = sub_font.render(self.phase_message_subtext, True, UI_GOLD)
+                prompt = self.ui.font_sm.render("Pressione ENTER para continuar", True, UI_TEXT)
+
+                box_w = max(title.get_width(), subtitle.get_width(), prompt.get_width()) + 40
+                box_h = title.get_height() + subtitle.get_height() + prompt.get_height() + 50
+                box_x = self.screen_w // 2 - box_w // 2
+                box_y = self.screen_h // 2 - box_h // 2
+
+                # Draw background panel with border highlight
+                panel = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
+                panel.fill((10, 10, 40, 220))
+                pygame.draw.rect(panel, UI_ACCENT, (0, 0, box_w, box_h), 3)
+                self.screen.blit(panel, (box_x, box_y))
+
+                self.screen.blit(title, (self.screen_w // 2 - title.get_width() // 2, box_y + 12))
+                self.screen.blit(subtitle, (self.screen_w // 2 - subtitle.get_width() // 2, box_y + 12 + title.get_height() + 8))
+                self.screen.blit(prompt, (self.screen_w // 2 - prompt.get_width() // 2, box_y + 12 + title.get_height() + subtitle.get_height() + 20))
+
+            # Additional temporary phase message (legacy timer)
+            elif self.phase_message_timer > 0 and self.phase_message_text:
+                msg = self.ui.font_lg.render(self.phase_message_text, True, UI_GOLD)
+                mx = self.screen_w // 2 - msg.get_width() // 2
+                self.screen.blit(msg, (mx, 70))
 
             # Overlay states
             if self.state == STATE_INVENTORY:
