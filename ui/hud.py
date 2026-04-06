@@ -44,7 +44,7 @@ class UI:
         self.font_subtitle = pygame.font.SysFont('consolas', 20)
         self.font_menu = pygame.font.SysFont('consolas', 22)
 
-    def draw_hud(self, surface, player, game_time, enemy_count):
+    def draw_hud(self, surface, player, game_time, enemy_count, phase):
         """Draw in-game HUD."""
         # ── Top-left: HP, Ammo, Level ──
         panel = generate_ui_panel(200, 100, 190)
@@ -65,6 +65,10 @@ class UI:
         # Level
         lvl_text = self.font.render(f"Nível {player.level}", True, UI_ACCENT)
         surface.blit(lvl_text, (16, 66))
+
+        # Phase
+        phase_text = self.font_sm.render(f"Fase {phase}", True, UI_ACCENT)
+        surface.blit(phase_text, (16, 78))
 
         # Weapon
         wpn_text = self.font_sm.render(

@@ -110,6 +110,7 @@ class EnemySpawner:
         self.spawn_rate = ENEMY_SPAWN_RATE
         self.difficulty = 1.0
         self.total_time = 0
+        self.phase_multiplier = 1
 
     def update(self, player_x, player_y, enemies, tilemap):
         """Spawn enemies around the player."""
@@ -126,11 +127,12 @@ class EnemySpawner:
             return
         self.timer = 0
 
-        if len([e for e in enemies if e.alive]) >= MAX_ENEMIES:
+        if len([e for e in enemies if e.alive]) >= MAX_ENEMIES * self.phase_multiplier:
             return
 
-        # Spawn 1-3 enemies
-        count = random.randint(1, min(3, int(self.difficulty)))
+        # Spawn 1-3 enemies (phase multiplier duplicates spawn amount in phase 2)
+        base_count = random.randint(1, min(3, int(self.difficulty)))
+        count = base_count * self.phase_multiplier
         for _ in range(count):
             angle = random.uniform(0, 2 * math.pi)
             dist = random.uniform(ENEMY_SPAWN_DIST_MIN, ENEMY_SPAWN_DIST_MAX)
