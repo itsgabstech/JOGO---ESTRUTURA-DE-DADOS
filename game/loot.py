@@ -89,7 +89,7 @@ def try_pickup(player, loot_drops):
                     drop.alive = False
                     collected.append(drop)
                 elif drop.type == 'ammo':
-                    player.ammo += 15
+                    player.ammo += 20
                     drop.alive = False
                     collected.append(drop)
                 else:
