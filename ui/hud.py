@@ -9,6 +9,7 @@ from assets.sprites import (
     generate_ui_panel, generate_inventory_slot,
     create_loot_sprite, create_menu_bg, create_gameover_overlay
 )
+from game.weapons_data import AMMO_ICONS
 
 
 class UI:
@@ -44,9 +45,8 @@ class UI:
         self.font_subtitle = pygame.font.SysFont('consolas', 20)
         self.font_menu = pygame.font.SysFont('consolas', 22)
 
-    def draw_hud(self, surface, player, game_time, enemy_count):
+    def draw_hud(self, surface, player, game_time, enemy_count, game_ref=None):
         """Draw in-game HUD."""
-        # ── Top-left: HP, Ammo, Level ──
         panel = generate_ui_panel(200, 100, 190)
         surface.blit(panel, (8, 8))
 
@@ -58,18 +58,9 @@ class UI:
         self._draw_bar(surface, 16, 34, 140, 8, player.xp, player.xp_to_next,
                        UI_ACCENT, (20, 50, 30), "XP")
 
-        # Ammo
-        ammo_text = self.font.render(f"Munição: {player.ammo}", True, UI_GOLD)
-        surface.blit(ammo_text, (16, 48))
-
         # Level
         lvl_text = self.font.render(f"Nível {player.level}", True, UI_ACCENT)
-        surface.blit(lvl_text, (16, 66))
-
-        # Weapon
-        wpn_text = self.font_sm.render(
-            f"Arma Nv.{player.weapon_level} | DMG:{player.damage}", True, UI_TEXT)
-        surface.blit(wpn_text, (16, 84))
+        surface.blit(lvl_text, (16, 48))
 
         # ── Top-right: Timer, Kills ──
         panel2 = generate_ui_panel(160, 56, 190)
@@ -97,6 +88,100 @@ class UI:
 
         # ── Bottom-right: Minimap ──
         self._draw_minimap(surface, player, 80, 80)
+
+        # ── Slots de Armas ──────────────────────────────────────
+        from game.weapons_data import AMMO_TYPES
+
+        def _ammo_stock(weapon, player):
+            """Retorna estoque total no inventário para a arma."""
+            if weapon is None or weapon.get('max_ammo', 0) == 0:
+                return None
+            key = weapon['name'].lower().replace(' ', '_')
+            ammo_type = AMMO_TYPES.get(key)
+            if ammo_type:
+                return player.ammo.get(ammo_type, 0)
+            return None
+
+        # Slot 1
+        if player.slot_1:
+            w1 = player.slot_1
+            if w1['name'] == "Faquinha":
+                slot1_text = f"[1] {w1['icon']} {w1['name']}"
+            else:
+                stock1 = _ammo_stock(w1, player)
+                slot1_text = (
+                    f"[1] {w1['icon']} {w1['name']} "
+                    f"[{w1['current_ammo']}/{w1['max_ammo']}]"
+                    + (f" +{stock1}" if stock1 is not None else "")
+                )
+        else:
+            slot1_text = "[1] Vazio"
+
+        slot1_color = UI_GOLD if player.active_slot == 1 else UI_TEXT
+        s1_surface = self.font_sm.render(slot1_text, True, slot1_color)
+
+        # Slot 2
+        if player.slot_2:
+            w2 = player.slot_2
+            stock2 = _ammo_stock(w2, player)
+            slot2_text = (
+                f"[2] {w2['icon']} {w2['name']} "
+                f"[{w2['current_ammo']}/{w2['max_ammo']}]"
+                + (f" +{stock2}" if stock2 is not None else "")
+            )
+        else:
+            slot2_text = "[2] Vazio (aguardando drop)"
+
+        slot2_color = UI_GOLD if player.active_slot == 2 else UI_TEXT
+        s2_surface = self.font_sm.render(slot2_text, True, slot2_color)
+
+        # Desenha os dois slots
+        surface.blit(s1_surface, (16, 66))
+        surface.blit(s2_surface, (16, 84))
+
+        # Borda no slot ativo
+        active_y = 66 if player.active_slot == 1 else 84
+        pygame.draw.rect(surface, UI_ACCENT, (12, active_y - 2, 220, 18), 1)
+
+        # Estoque de munição de TODAS as armas (canto inferior centro-esquerda)
+        ammo_panel_x = 16
+        ammo_panel_y = self.sh - 90
+        all_ammo_lines = []
+        for wkey, ammo_type in AMMO_TYPES.items():
+            stock = player.ammo.get(ammo_type, 0)
+            if stock > 0:
+                from game.weapons_data import WEAPONS_DATA
+                wname = WEAPONS_DATA.get(wkey, {}).get('name', wkey)
+                icon  = AMMO_ICONS.get(ammo_type, '📦')
+                all_ammo_lines.append(f"{icon} {wname}: {stock}")
+
+        if all_ammo_lines:
+            ammo_bg = pygame.Surface((200, len(all_ammo_lines) * 14 + 6), pygame.SRCALPHA)
+            ammo_bg.fill((15, 15, 25, 160))
+            surface.blit(ammo_bg, (ammo_panel_x - 2, ammo_panel_y - 2))
+            for i, line in enumerate(all_ammo_lines):
+                txt = self.font_sm.render(line, True, (180, 200, 180))
+                surface.blit(txt, (ammo_panel_x, ammo_panel_y + i * 14))
+
+        # Dicas de controles
+        controls = self.font_sm.render("[1/2/Q] Trocar arma  [R] Recarregar", True, UI_BLUE)
+        surface.blit(controls, (16, self.sh - 40))
+
+        # Dica de inventário
+        inv_hint = self.font_sm.render("[I] Inventario", True, UI_BLUE)
+        surface.blit(inv_hint, (self.sw - 110, self.sh - 40))
+
+        if game_ref and hasattr(game_ref, 'nearby_weapon') and game_ref.nearby_weapon:
+            weapon_data = game_ref.nearby_weapon.loot_data.get('data', {})
+            weapon_name = weapon_data.get('name', 'Arma')
+            
+            msg = f"[Q] Pegar {weapon_name}"
+            msg_surface = self.font.render(msg, True, UI_GOLD)
+            msg_x = self.sw // 2 - msg_surface.get_width() // 2
+            msg_y = self.sh - 60
+            surface.blit(msg_surface, (msg_x, msg_y))
+
+
 
     def _draw_minimap(self, surface, player, mw, mh):
         """Draw a small minimap in the bottom-right corner."""
@@ -170,7 +255,8 @@ class UI:
             # Draw item if present
             item = player.inventory[i]
             if item:
-                loot_img = self.loot_sprites.get(item['type'])
+                loot_type = item.get('type', 'ammo_pack')
+                loot_img = self.loot_sprites.get(loot_type)
                 if loot_img:
                     surface.blit(loot_img, (sx + 6, sy + 6))
                 # Count
@@ -179,6 +265,7 @@ class UI:
                     ct = self.font_sm.render(str(count), True, UI_TEXT)
                     surface.blit(ct, (sx + slot_size - ct.get_width() - 2,
                                       sy + slot_size - 12))
+
 
         # Selected item info
         sel_item = player.inventory[player.selected_slot]
@@ -296,14 +383,17 @@ class UI:
             "WASD / Setas  —  Movimentar",
             "Mouse / Auto   —  Atirar",
             "TAB            —  Alternar modo de tiro",
+            "1 / 2 / Q      —  Trocar arma",
+            "R              —  Recarregar arma atual",
             "I              —  Abrir/fechar inventário",
             "E              —  Usar item selecionado",
-            "Q              —  Descartar item",
+            "Q              —  Descartar item (inventário)",
             "ESC            —  Pausar / Voltar",
             "",
             "Sobreviva o máximo que puder!",
-            "Colete loot, suba de nível, escolha upgrades.",
-            "Os zumbis ficam mais fortes com o tempo!",
+            "Zumbis dropam armas e munição!",
+            "Cada arma tem seu próprio tipo de munição.",
+            "Troque de arma conforme a situação!",
             "",
             "Campus UNIMA Afya Maceió",
             "— Inspirado em Vampire Survivors —",

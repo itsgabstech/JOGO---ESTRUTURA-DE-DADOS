@@ -12,8 +12,8 @@ SCALE = 3  # Pixel art scale factor
 
 # ─── Map ───
 TILE_SIZE = 16
-MAP_WIDTH = 120   # tiles
-MAP_HEIGHT = 90   # tiles
+MAP_WIDTH = 120
+MAP_HEIGHT = 90
 MAP_PX_W = MAP_WIDTH * TILE_SIZE
 MAP_PX_H = MAP_HEIGHT * TILE_SIZE
 
@@ -29,13 +29,12 @@ T_DOOR = 6
 # ─── Player ───
 PLAYER_SPEED = 1.8
 PLAYER_MAX_HP = 100
-PLAYER_START_AMMO = 30
-PLAYER_FIRE_RATE = 15  # frames between shots
-PLAYER_DAMAGE = 10
+PLAYER_PICKUP_RANGE = 20
+PLAYER_INV_SIZE = 16
+
+# ─── Combate  ───
 BULLET_SPEED = 4.5
 BULLET_RANGE = 150
-PLAYER_PICKUP_RANGE = 20
-PLAYER_INV_SIZE = 16  # inventory slots
 
 # ─── Enemies ───
 ENEMY_SPAWN_RATE = 90  # frames between spawns (start)
@@ -54,40 +53,25 @@ ENEMY_STATS = {
     ZOMBIE_TANK:   {'hp': 60, 'speed': 0.3, 'damage': 15, 'xp': 30, 'name': 'Zumbi Tank'},
 }
 
-# ─── Loot ───
-LOOT_TYPES = ['ammo', 'health', 'xp', 'speed', 'damage', 'armor', 'magnet', 'weapon']
+# ─── Loot (Sistema Atualizado) ───
+LOOT_TYPES = ['health', 'ammo_pack', 'ammo_specific', 'weapon', 'xp']
 LOOT_DROP_CHANCE = 0.45
 LOOT_WEIGHTS = {
-    'xp': 35,
-    'ammo': 25,
-    'health': 20,
-    'speed': 5,
-    'damage': 5,
-    'armor': 4,
-    'magnet': 3,
-    'weapon': 3,
+    'xp': 50,
+    'health': 30,
+    'ammo_pack': 20,
 }
 LOOT_NAMES = {
-    'ammo': 'Munição',
+    'ammo_pack': 'Pacote de Munição',
     'health': 'Kit Médico',
     'xp': 'Experiência',
-    'speed': 'Tênis Turbo',
-    'damage': 'Mod de Dano',
-    'armor': 'Colete',
-    'magnet': 'Ímã de Loot',
-    'weapon': 'Arma Nova',
 }
 LOOT_DESCRIPTIONS = {
-    'ammo': '+15 munição',
+    'ammo_pack': 'Recarrega a arma atual',
     'health': 'Restaura 25 HP',
     'xp': '+XP bônus',
-    'speed': '+10% velocidade',
-    'damage': '+15% dano',
-    'armor': 'Reduz dano recebido',
-    'magnet': 'Aumenta alcance de coleta',
-    'weapon': 'Melhora a arma',
 }
-LOOT_STACKABLE = {'ammo', 'health', 'xp'}
+LOOT_STACKABLE = {'ammo_pack', 'health', 'xp'}
 
 # ─── Progression ───
 XP_BASE = 50
@@ -95,12 +79,11 @@ XP_GROWTH = 1.3  # multiplier per level
 MAX_LEVEL = 30
 
 UPGRADES = [
-    {'name': 'Dano+', 'desc': '+15% dano', 'stat': 'damage', 'value': 0.15},
-    {'name': 'Cadência+', 'desc': '+12% cadência', 'stat': 'fire_rate', 'value': 0.12},
+    {'name': 'Dano+', 'desc': '+15% dano em todas as armas', 'stat': 'damage', 'value': 0.15},
+    {'name': 'Cadência+', 'desc': '+12% cadência de tiro', 'stat': 'fire_rate', 'value': 0.12},
     {'name': 'Vida+', 'desc': '+20 HP máximo', 'stat': 'max_hp', 'value': 20},
     {'name': 'Velocidade+', 'desc': '+8% velocidade', 'stat': 'speed', 'value': 0.08},
-    {'name': 'Coleta+', 'desc': '+25% alcance', 'stat': 'pickup_range', 'value': 0.25},
-    {'name': 'Munição+', 'desc': '+20 munição', 'stat': 'ammo', 'value': 20},
+    {'name': 'Coleta+', 'desc': '+25% alcance de coleta', 'stat': 'pickup_range', 'value': 0.25},
 ]
 
 # ─── Combat modes ───
@@ -117,3 +100,12 @@ UI_BLUE = (80, 140, 220)
 UI_DARK = (15, 15, 20)
 UI_PANEL = (30, 30, 45)
 UI_BORDER = (60, 65, 80)
+
+# ─── Loot Icons ───
+LOOT_ICONS = {
+    'health': '❤️',
+    'ammo_pack': '📦',
+    'ammo_specific': '🔫',
+    'weapon': '🔫',
+    'xp': '⭐'
+}

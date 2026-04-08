@@ -5,13 +5,15 @@ Main game loop, state management, core logic.
 import pygame
 import random
 import math
+from game import player
 from game.config import *
 from game.player import Player
 from game.enemies import Enemy, EnemySpawner
 from game.campus_map import generate_campus_map, get_spawn_points
-from game.loot import LootDrop, roll_loot, try_pickup
+from game.loot import LootDrop, roll_loot, try_pickup, try_equip_weapon
 from game.effects import EffectsManager
 from game.renderer import Renderer
+from game.weapons_data import AMMO_TYPES
 from ui.hud import UI
 
 
@@ -60,6 +62,7 @@ class Game:
         self.loot_drops = []
         self.spawner = None
         self.game_time = 0
+        self.nearby_weapon = None
 
         # Upgrade selection
         self.upgrade_options = []
@@ -178,6 +181,7 @@ class Game:
         self.spawner = EnemySpawner()
         self.effects = EffectsManager()
         self.game_time = 0
+        self.nearby_weapon = None
         self.state = STATE_PLAYING
 
     def run(self):
@@ -244,12 +248,27 @@ class Game:
         elif self.state == STATE_PLAYING:
             if key == pygame.K_ESCAPE:
                 self.state = STATE_PAUSED
+            elif key == pygame.K_1:
+                self.player.active_slot = 1
+            elif key == pygame.K_2:
+                if self.player.slot_2:
+                    self.player.active_slot = 2
+            elif key == pygame.K_q:
+                # Verifica se tem arma no chão para pegar
+                if self.nearby_weapon:
+                    if try_equip_weapon(self.player, self.loot_drops, self.nearby_weapon):
+                        self.play_sound('pickup')
+                        self.nearby_weapon = None
+                else:
+                    # Se não tem arma no chão, troca de slot
+                    self.player.switch_slot()
+            elif key == pygame.K_r:
+                if self.player.reload():
+                    print("Recarregado!")
             elif key == pygame.K_i:
                 self.state = STATE_INVENTORY
             elif key == pygame.K_TAB:
-                self.player.combat_mode = (
-                    COMBAT_MANUAL if self.player.combat_mode == COMBAT_AUTO
-                    else COMBAT_AUTO)
+                self.player.combat_mode = COMBAT_MANUAL if self.player.combat_mode == COMBAT_AUTO else COMBAT_AUTO
 
         elif self.state == STATE_PAUSED:
             if key == pygame.K_ESCAPE:
@@ -324,64 +343,155 @@ class Game:
         self.player.update(keys, self.tilemap)
 
         # Auto-shoot or manual shoot
+        new_bullets = None
         if self.player.combat_mode == COMBAT_AUTO:
-            bullet = self.player.try_shoot(self.enemies)
+            new_bullets = self.player.try_shoot(self.enemies)
         else:
-            # Manual: shoot on left click or space
             mouse_buttons = pygame.mouse.get_pressed()
             if mouse_buttons[0] or keys[pygame.K_SPACE]:
-                # Convert screen mouse to world coords
-                world_mouse = self.renderer.screen_to_world(
-                    mouse_pos[0], mouse_pos[1])
-                bullet = self.player.try_shoot(
-                    self.enemies, world_mouse, 0, 0)
+                world_mouse = self.renderer.screen_to_world(mouse_pos[0], mouse_pos[1])
+                new_bullets = self.player.try_shoot(self.enemies, world_mouse, 0, 0)
+
+        if new_bullets:
+            if isinstance(new_bullets, list):
+                for bullet in new_bullets:
+                    print(f"[SHOOT] Tipo: {bullet.get('type', 'normal')}, Dano: {bullet['damage']}")
+                    self.bullets.append(bullet)
+                    self.play_sound('shoot')
+                    self.effects.spawn_muzzle_flash(bullet['x'], bullet['y'], 
+                                                    bullet['dx'], bullet['dy'])
             else:
-                bullet = None
+                self.bullets.append(new_bullets)
+                self.play_sound('shoot')
+                self.effects.spawn_muzzle_flash(new_bullets['x'], new_bullets['y'],
+                                                new_bullets['dx'], new_bullets['dy'])
 
-        if bullet:
-            self.bullets.append(bullet)
-            self.play_sound('shoot')
-            self.effects.spawn_muzzle_flash(
-                bullet['x'], bullet['y'], bullet['dx'], bullet['dy'])
-
-        # Update bullets
+       # Update bullets e efeitos de área
         for b in self.bullets[:]:
             b['x'] += b['dx']
             b['y'] += b['dy']
             b['life'] -= 1
+            
+            # Verifica se é uma granada ou míssil que explodiu no fim da vida
             if b['life'] <= 0:
-                self.bullets.remove(b)
-                continue
-
-            # Check collision with enemies
-            for enemy in self.enemies:
-                if not enemy.alive:
-                    continue
-                dx = b['x'] - enemy.x
-                dy = b['y'] - enemy.y
-                if abs(dx) < 7 and abs(dy) < 7:
-                    killed = enemy.take_damage(b['damage'])
-                    self.player.total_damage_dealt += b['damage']
-                    self.effects.add_damage_number(
-                        enemy.x, enemy.y, b['damage'])
-                    self.effects.spawn_hit_particles(enemy.x, enemy.y, 4)
+                # Efeito de explosão para granadas, mísseis e bazuca
+                if b.get('type') in ['explosive', 'grenade', 'grenade_launcher']:
+                    print(f"[EXPLOSION] {b.get('type')} explodiu em ({b['x']}, {b['y']})")
+                    
+                    # Dano em área
+                    radius = b.get('radius', 35)
+                    for enemy in self.enemies:
+                        if not enemy.alive:
+                            continue
+                        dist = math.sqrt((b['x'] - enemy.x)**2 + (b['y'] - enemy.y)**2)
+                        if dist < radius:
+                            damage = int(b['damage'] * (1 - dist/radius))
+                            killed = enemy.take_damage(max(1, damage))
+                            self.player.total_damage_dealt += damage
+                            self.effects.add_damage_number(enemy.x, enemy.y, damage)
+                            
+                            if killed:
+                                self.player.kills += 1
+                                self.effects.spawn_death_particles(enemy.x, enemy.y)
+                                self.effects.shake(3, 8)
+                                
+                                from game.loot import roll_loot
+                                loot_items = roll_loot(enemy.x, enemy.y)
+                                if loot_items:
+                                    for loot in loot_items:
+                                        self.loot_drops.append(loot)
+                                if self.player.add_xp(enemy.xp_value):
+                                    self._trigger_level_up()
+                    
+                    # Efeito visual de explosão
+                    self.effects.spawn_explosion(b['x'], b['y'])
+                    self.effects.shake(4, 12)
                     self.play_sound('hit')
+                    
+                    self.bullets.remove(b)
+                    continue
+                
+                # Área de fogo para coquetel molotov
+                elif b.get('type') == 'fire':
+                    print(f"[FIRE] Fogo criado em ({b['x']}, {b['y']}) duração: {b.get('duration', 60)}")
+                    self.effects.spawn_fire_area(b['x'], b['y'], b.get('duration', 60), b['damage'])
+                    self.bullets.remove(b)
+                    continue
+                
+                else:
+                    self.bullets.remove(b)
+                    continue
+            
+            # Para minas: quando armar, verifica colisão com inimigos
+            if b.get('type') == 'mine':
+                if not b.get('armed', False):
+                    b['arm_timer'] = b.get('arm_timer', 30) - 1
+                    if b['arm_timer'] <= 0:
+                        b['armed'] = True
+                        print(f"[MINE] Mina armada em ({b['x']}, {b['y']})")
+                
+                if b.get('armed', False):
+                    for enemy in self.enemies:
+                        if not enemy.alive:
+                            continue
+                        dist = math.sqrt((b['x'] - enemy.x)**2 + (b['y'] - enemy.y)**2)
+                        if dist < 20:
+                            print(f"[MINE] Mina explodiu! Dano: {b['damage']}")
+                            killed = enemy.take_damage(b['damage'])
+                            self.player.total_damage_dealt += b['damage']
+                            self.effects.add_damage_number(enemy.x, enemy.y, b['damage'])
+                            
+                            if killed:
+                                self.player.kills += 1
+                                self.effects.spawn_death_particles(enemy.x, enemy.y)
+                                from game.loot import roll_loot
+                                loot_items = roll_loot(enemy.x, enemy.y)
+                                if loot_items:
+                                    for loot in loot_items:
+                                        self.loot_drops.append(loot)
+                                if self.player.add_xp(enemy.xp_value):
+                                    self._trigger_level_up()
+                            
+                            # Efeito de explosão da mina
+                            self.effects.spawn_explosion(b['x'], b['y'])
+                            self.effects.shake(3, 10)
+                            self.play_sound('hit')
+                            self.bullets.remove(b)
+                            break
+            
+            # Colisão normal para balas comuns (M4A4, Espingarda, Faquinha)
+            else:
+                for enemy in self.enemies:
+                    if not enemy.alive:
+                        continue
+                    dx = b['x'] - enemy.x
+                    dy = b['y'] - enemy.y
+                    hit_distance = 10 if b.get('type') == 'melee' else 7
+                    if abs(dx) < hit_distance and abs(dy) < hit_distance:
+                        killed = enemy.take_damage(b['damage'])
+                        self.player.total_damage_dealt += b['damage']
+                        self.effects.add_damage_number(enemy.x, enemy.y, b['damage'])
+                        self.effects.spawn_hit_particles(enemy.x, enemy.y, 4)
+                        self.play_sound('hit')
 
-                    if killed:
-                        self.player.kills += 1
-                        self.effects.spawn_death_particles(enemy.x, enemy.y)
-                        self.effects.shake(2, 4)
-                        # Roll loot
-                        loot = roll_loot(enemy.x, enemy.y)
-                        if loot:
-                            self.loot_drops.append(loot)
-                        # XP
-                        if self.player.add_xp(enemy.xp_value):
-                            self._trigger_level_up()
+                        if killed:
+                            self.player.kills += 1
+                            self.effects.spawn_death_particles(enemy.x, enemy.y)
+                            self.effects.shake(2, 4)
+                            
+                            from game.loot import roll_loot
+                            loot_items = roll_loot(enemy.x, enemy.y)
+                            if loot_items:
+                                for loot in loot_items:
+                                    self.loot_drops.append(loot)
+                            
+                            if self.player.add_xp(enemy.xp_value):
+                                self._trigger_level_up()
 
-                    if b in self.bullets:
-                        self.bullets.remove(b)
-                    break
+                        if b in self.bullets:
+                            self.bullets.remove(b)
+                        break
+
 
         # Update enemies
         self.spawner.update(self.player.x, self.player.y,
@@ -389,7 +499,7 @@ class Game:
 
         for enemy in self.enemies:
             enemy.update(self.player.x, self.player.y,
-                         self.tilemap, self.enemies)
+                        self.tilemap, self.enemies)
             if enemy.alive and enemy.collides_with_player(self.player):
                 self.player.take_damage(enemy.damage)
                 if not self.player.alive:
@@ -405,11 +515,25 @@ class Game:
             drop.update()
         self.loot_drops = [d for d in self.loot_drops if d.alive]
 
-        # Pickup
-        collected = try_pickup(self.player, self.loot_drops)
+        # Pickup (automático para munição, vida, XP)
+        from game.loot import try_pickup
+        collected = try_pickup(self.player, self.loot_drops, self)
         for item in collected:
             self.effects.spawn_pickup_particles(item.x, item.y)
             self.play_sound('pickup')
+
+        # Encontra a arma mais próxima para interação manual
+        self.nearby_weapon = None   
+        min_dist = 50
+        for drop in self.loot_drops:
+            if not drop.alive:
+                continue
+            data = drop.loot_data
+            if isinstance(data, dict) and data.get('type') == 'weapon':
+                dist = drop.distance_to(self.player.x, self.player.y)
+                if dist < min_dist:
+                    min_dist = dist
+                    self.nearby_weapon = drop
 
         # Update effects
         self.effects.update()
@@ -452,10 +576,10 @@ class Game:
                 self.enemies, self.bullets, self.loot_drops,
                 self.effects, shake)
 
-            # Draw HUD
+            # Calcular enemy_count e draw HUD
             enemy_count = len([e for e in self.enemies if e.alive])
             self.ui.draw_hud(self.screen, self.player,
-                             self.game_time, enemy_count)
+                             self.game_time, enemy_count, self)
 
             # Overlay states
             if self.state == STATE_INVENTORY:
