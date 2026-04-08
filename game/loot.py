@@ -51,10 +51,11 @@ class LootDrop:
 
 def roll_loot(x, y):
     """Roll for loot drop. Returns LootDrop or None."""
+    # Primeiro: decide se vai cair algum item.
     if random.random() > LOOT_DROP_CHANCE:
         return None
 
-    # Weighted random selection
+    # Segundo: escolhe qual item caiu usando pesos configuráveis.
     total = sum(LOOT_WEIGHTS.values())
     r = random.uniform(0, total)
     cumulative = 0
@@ -89,6 +90,7 @@ def try_pickup(player, loot_drops):
                     drop.alive = False
                     collected.append(drop)
                 elif drop.type == 'ammo':
+                    # Munição é aplicada instantaneamente (não vai para inventário).
                     player.ammo += AMMO_PICKUP_AMOUNT
                     drop.alive = False
                     collected.append(drop)

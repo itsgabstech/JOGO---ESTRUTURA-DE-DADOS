@@ -31,6 +31,7 @@ T_ROAD = 8
 # ─── Player ───
 PLAYER_SPEED = 1.8
 PLAYER_MAX_HP = 100
+# Quantidade inicial alta para reduzir frustração de falta de munição no começo.
 PLAYER_START_AMMO = 180
 PLAYER_FIRE_RATE = 15  # frames between shots
 PLAYER_DAMAGE = 10
@@ -58,9 +59,11 @@ ENEMY_STATS = {
 
 # ─── Loot ───
 LOOT_TYPES = ['ammo', 'health', 'xp', 'speed', 'damage', 'armor', 'magnet', 'weapon']
+# Chance global de algum loot cair quando um inimigo morre.
 LOOT_DROP_CHANCE = 0.70
 LOOT_WEIGHTS = {
     'xp': 25,
+    # Peso maior = maior frequência relativa de munição entre os drops.
     'ammo': 80,
     'health': 20,
     'speed': 5,
@@ -90,7 +93,9 @@ LOOT_DESCRIPTIONS = {
     'weapon': 'Melhora a arma',
 }
 LOOT_STACKABLE = {'ammo', 'health', 'xp'}
+# Munição recebida ao encostar no item de munição no mapa.
 AMMO_PICKUP_AMOUNT = 60
+# Chance extra independente para cada zumbi morto derrubar munição.
 AMMO_DROP_CHANCE_ON_KILL = 0.75
 
 # ─── Progression ───
