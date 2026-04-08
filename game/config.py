@@ -31,7 +31,7 @@ T_ROAD = 8
 # ─── Player ───
 PLAYER_SPEED = 1.8
 PLAYER_MAX_HP = 100
-PLAYER_START_AMMO = 90
+PLAYER_START_AMMO = 180
 PLAYER_FIRE_RATE = 15  # frames between shots
 PLAYER_DAMAGE = 10
 BULLET_SPEED = 4.5
@@ -58,10 +58,10 @@ ENEMY_STATS = {
 
 # ─── Loot ───
 LOOT_TYPES = ['ammo', 'health', 'xp', 'speed', 'damage', 'armor', 'magnet', 'weapon']
-LOOT_DROP_CHANCE = 0.55
+LOOT_DROP_CHANCE = 0.70
 LOOT_WEIGHTS = {
     'xp': 25,
-    'ammo': 55,
+    'ammo': 80,
     'health': 20,
     'speed': 5,
     'damage': 5,
@@ -80,7 +80,7 @@ LOOT_NAMES = {
     'weapon': 'Arma Nova',
 }
 LOOT_DESCRIPTIONS = {
-    'ammo': '+30 munição',
+    'ammo': '+60 munição',
     'health': 'Restaura 25 HP',
     'xp': '+XP bônus',
     'speed': '+10% velocidade',
@@ -90,8 +90,8 @@ LOOT_DESCRIPTIONS = {
     'weapon': 'Melhora a arma',
 }
 LOOT_STACKABLE = {'ammo', 'health', 'xp'}
-AMMO_PICKUP_AMOUNT = 30
-AMMO_DROP_CHANCE_ON_KILL = 0.35
+AMMO_PICKUP_AMOUNT = 60
+AMMO_DROP_CHANCE_ON_KILL = 0.75
 
 # ─── Progression ───
 XP_BASE = 50
@@ -104,7 +104,7 @@ UPGRADES = [
     {'name': 'Vida+', 'desc': '+20 HP máximo', 'stat': 'max_hp', 'value': 20},
     {'name': 'Velocidade+', 'desc': '+8% velocidade', 'stat': 'speed', 'value': 0.08},
     {'name': 'Coleta+', 'desc': '+25% alcance', 'stat': 'pickup_range', 'value': 0.25},
-    {'name': 'Munição+', 'desc': '+20 munição', 'stat': 'ammo', 'value': 20},
+    {'name': 'Munição+', 'desc': '+40 munição', 'stat': 'ammo', 'value': 40},
 ]
 
 # ─── Combat modes ───
