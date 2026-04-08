@@ -47,11 +47,6 @@ C_PARKING = (80, 80, 90)
 C_LINE = (220, 220, 50)
 C_GATE = (70, 70, 80)
 C_CONCRETE = (170, 170, 165)
-C_TREE_CANOPY = (40, 100, 35)
-C_TREE_CANOPY2 = (50, 115, 45)
-C_TREE_TRUNK = (80, 55, 30)
-C_ROAD = (55, 55, 60)
-C_ROAD_LINE = (200, 200, 180)
 
 
 def px(surface, x, y, color):
@@ -375,45 +370,6 @@ def generate_tile_concrete():
     random.seed(200)
     for _ in range(4):
         px(s, random.randint(0, 15), random.randint(0, 15), (160, 160, 155))
-    return s
-
-
-def generate_tile_tree(variant=0):
-    """Generate 16x16 tree tile (blocks movement)."""
-    s = pygame.Surface((16, 16))
-    # Base is grass
-    s.fill(C_GRASS)
-    random.seed(variant * 77)
-    # Trunk
-    rect(s, 6, 10, 4, 4, C_TREE_TRUNK)
-    px(s, 7, 11, (90, 65, 35))
-    # Canopy (round shape)
-    for dy in range(-5, 6):
-        for dx in range(-5, 6):
-            if dx * dx + dy * dy <= 26:
-                cx, cy = 8 + dx, 6 + dy
-                if 0 <= cx < 16 and 0 <= cy < 16:
-                    c = C_TREE_CANOPY if (dx + dy + variant) % 3 != 0 else C_TREE_CANOPY2
-                    px(s, cx, cy, c)
-    # Highlights
-    px(s, 6, 3, (65, 130, 55))
-    px(s, 9, 4, (65, 130, 55))
-    px(s, 7, 5, (55, 120, 50))
-    return s
-
-
-def generate_tile_road(variant=0):
-    """Generate 16x16 road tile."""
-    s = pygame.Surface((16, 16))
-    s.fill(C_ROAD)
-    random.seed(300 + variant)
-    # Subtle texture
-    for _ in range(5):
-        px(s, random.randint(0, 15), random.randint(0, 15), (50, 50, 55))
-    # Dashed center line (only on certain variants)
-    if variant % 2 == 0:
-        for x in range(3, 13, 4):
-            rect(s, x, 7, 3, 2, C_ROAD_LINE)
     return s
 
 

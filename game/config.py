@@ -25,8 +25,6 @@ T_WALL = 3
 T_PARKING = 4
 T_CONCRETE = 5
 T_DOOR = 6
-T_TREE = 7
-T_ROAD = 8
 
 # ─── Player ───
 PLAYER_SPEED = 1.8
