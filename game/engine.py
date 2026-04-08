@@ -7,7 +7,7 @@ import random
 import math
 from game.config import *
 from game.player import Player
-from game.enemies import Enemy, EnemySpawner, ProfessorVital
+from game.enemies import Enemy, EnemySpawner
 from game.campus_map import generate_campus_map, get_spawn_points
 from game.loot import LootDrop, roll_loot, try_pickup
 from game.effects import EffectsManager
@@ -58,12 +58,9 @@ class Game:
         self.player = None
         self.enemies = []
         self.bullets = []
-        self.enemy_projectiles = []
         self.loot_drops = []
         self.spawner = None
         self.game_time = 0
-        self.boss_spawned = False
-        self.boss_score_threshold = 120
 
         # Upgrade selection
         self.upgrade_options = []
@@ -184,12 +181,10 @@ class Game:
         self.player.combat_mode = self.combat_mode
         self.enemies = []
         self.bullets = []
-        self.enemy_projectiles = []
         self.loot_drops = []
         self.spawner = EnemySpawner()
         self.effects = EffectsManager()
         self.game_time = 0
-        self.boss_spawned = False
         self.phase = 1
         self.phase_message_timer = 0
         self.phase_message_text = ""
@@ -266,8 +261,6 @@ class Game:
                 self.player.combat_mode = (
                     COMBAT_MANUAL if self.player.combat_mode == COMBAT_AUTO
                     else COMBAT_AUTO)
-            elif key == pygame.K_b:
-                self._try_spawn_professor_vital(force=True)
 
         elif self.state == STATE_PAUSED:
             if key == pygame.K_ESCAPE:
@@ -383,7 +376,7 @@ class Game:
                     continue
                 dx = b['x'] - enemy.x
                 dy = b['y'] - enemy.y
-                if abs(dx) < enemy.w * 0.45 and abs(dy) < enemy.h * 0.45:
+                if abs(dx) < 7 and abs(dy) < 7:
                     killed = enemy.take_damage(b['damage'])
                     self.player.total_damage_dealt += b['damage']
                     self.effects.add_damage_number(
@@ -406,6 +399,10 @@ class Game:
                                 self.spawner.phase_multiplier = 2
                             self.play_sound('levelup')
 
+                        # Extra chance: zombie drops ammo item
+                        if random.random() < AMMO_DROP_CHANCE_ON_KILL:
+                            self.loot_drops.append(LootDrop(enemy.x, enemy.y, 'ammo'))
+
                         # Roll loot
                         loot = roll_loot(enemy.x, enemy.y)
                         if loot:
@@ -419,38 +416,17 @@ class Game:
                     break
 
         # Update enemies
-        self._try_spawn_professor_vital()
         self.spawner.update(self.player.x, self.player.y,
                             self.enemies, self.tilemap)
 
         for enemy in self.enemies:
-            projectile = enemy.update(self.player.x, self.player.y,
-                                      self.tilemap, self.enemies)
-            if projectile:
-                self.enemy_projectiles.append(projectile)
+            enemy.update(self.player.x, self.player.y,
+                         self.tilemap, self.enemies)
             if enemy.alive and enemy.collides_with_player(self.player):
                 self.player.take_damage(enemy.damage)
                 if not self.player.alive:
                     break
                 self.effects.shake(3, 6)
-
-        # Update boss/enemy projectiles
-        for proj in self.enemy_projectiles[:]:
-            proj['x'] += proj['dx']
-            proj['y'] += proj['dy']
-            proj['life'] -= 1
-            if proj['life'] <= 0:
-                self.enemy_projectiles.remove(proj)
-                continue
-
-            hit_x = abs(proj['x'] - self.player.x) < 7
-            hit_y = abs(proj['y'] - self.player.y) < 7
-            if hit_x and hit_y:
-                self.player.take_damage(proj['damage'])
-                self.enemy_projectiles.remove(proj)
-                if not self.player.alive:
-                    break
-                self.effects.shake(4, 7)
 
         # Clean dead enemies (after fade)
         self.enemies = [e for e in self.enemies
@@ -510,7 +486,7 @@ class Game:
             shake = self.effects.get_shake_offset()
             self.renderer.draw_world(
                 self.screen, self.tilemap, self.player,
-                self.enemies, self.bullets + self.enemy_projectiles, self.loot_drops,
+                self.enemies, self.bullets, self.loot_drops,
                 self.effects, shake)
 
             # Draw HUD
@@ -546,10 +522,6 @@ class Game:
                 msg = self.ui.font_lg.render(self.phase_message_text, True, UI_GOLD)
                 mx = self.screen_w // 2 - msg.get_width() // 2
                 self.screen.blit(msg, (mx, 70))
-                if self.phase_message_subtext:
-                    sub = self.ui.font.render(self.phase_message_subtext, True, UI_TEXT)
-                    sx = self.screen_w // 2 - sub.get_width() // 2
-                    self.screen.blit(sub, (sx, 96))
 
             # Overlay states
             if self.state == STATE_INVENTORY:
@@ -565,31 +537,3 @@ class Game:
                                        self.game_time)
 
         pygame.display.flip()
-
-    def _try_spawn_professor_vital(self, force=False):
-        """Spawn the final boss by score or reaching the map's final area."""
-        if self.boss_spawned or not self.player or not self.player.alive:
-            return
-
-        score = self.player.kills * 10
-        reached_final_area = (
-            self.player.x > MAP_PX_W * 0.82 and
-            self.player.y > MAP_PX_H * 0.72
-        )
-        if not force and score < self.boss_score_threshold and not reached_final_area:
-            return
-
-        spawn_x = min(MAP_PX_W - TILE_SIZE * 3, self.player.x + 140)
-        spawn_y = min(MAP_PX_H - TILE_SIZE * 3, self.player.y + 100)
-        from game.campus_map import get_walkable
-        if not get_walkable(self.tilemap, spawn_x, spawn_y):
-            spawn_x = self.player.x + 60
-            spawn_y = self.player.y + 60
-        boss = ProfessorVital(spawn_x, spawn_y)
-        self.enemies.append(boss)
-        self.boss_spawned = True
-        self.phase_message_text = ""
-        self.phase_message_subtext = ""
-        self.phase_message_timer = 0
-        print("PROFESSOR VITAL: EU SOU O BOSS!")
-        print("A prova final começou! Aqui é sem consulta!")
