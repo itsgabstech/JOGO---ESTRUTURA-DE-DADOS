@@ -25,13 +25,11 @@ T_WALL = 3
 T_PARKING = 4
 T_CONCRETE = 5
 T_DOOR = 6
-T_TREE = 7
-T_ROAD = 8
 
 # ─── Player ───
 PLAYER_SPEED = 1.8
 PLAYER_MAX_HP = 100
-PLAYER_START_AMMO = 60
+PLAYER_START_AMMO = 30
 PLAYER_FIRE_RATE = 15  # frames between shots
 PLAYER_DAMAGE = 10
 BULLET_SPEED = 4.5
@@ -60,8 +58,8 @@ ENEMY_STATS = {
 LOOT_TYPES = ['ammo', 'health', 'xp', 'speed', 'damage', 'armor', 'magnet', 'weapon']
 LOOT_DROP_CHANCE = 0.45
 LOOT_WEIGHTS = {
-    'xp': 25,
-    'ammo': 35,
+    'xp': 35,
+    'ammo': 25,
     'health': 20,
     'speed': 5,
     'damage': 5,
@@ -80,7 +78,7 @@ LOOT_NAMES = {
     'weapon': 'Arma Nova',
 }
 LOOT_DESCRIPTIONS = {
-    'ammo': '+20 munição',
+    'ammo': '+15 munição',
     'health': 'Restaura 25 HP',
     'xp': '+XP bônus',
     'speed': '+10% velocidade',

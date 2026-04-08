@@ -1,0 +1,29 @@
+Revert "resolve conflitos"
+
+This reverts commit 84bd2c285bb077375bcafe9e2d0f156481d866af, reversing
+changes made to b270631347a378e74f98d3517c02b19af83b6437.
+
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+# On branch main
+# Your branch is up to date with 'origin/main'.
+#
+# Changes to be committed:
+#	deleted:    .gitignore
+#	modified:   assets/__pycache__/__init__.cpython-312.pyc
+#	modified:   assets/__pycache__/sprites.cpython-312.pyc
+#	modified:   game/__pycache__/__init__.cpython-312.pyc
+#	modified:   game/__pycache__/campus_map.cpython-312.pyc
+#	modified:   game/__pycache__/config.cpython-312.pyc
+#	modified:   game/__pycache__/effects.cpython-312.pyc
+#	modified:   game/__pycache__/enemies.cpython-312.pyc
+#	modified:   game/__pycache__/engine.cpython-312.pyc
+#	modified:   game/__pycache__/loot.cpython-312.pyc
+#	modified:   game/__pycache__/player.cpython-312.pyc
+#	modified:   game/__pycache__/renderer.cpython-312.pyc
+#	modified:   game/config.py
+#	modified:   game/loot.py
+#	modified:   ui/__pycache__/__init__.cpython-312.pyc
+#	modified:   ui/__pycache__/hud.cpython-312.pyc
+#
