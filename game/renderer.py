@@ -2,6 +2,8 @@
 UNIMA Survivors - Renderer
 Handles all game world drawing with camera and scaling.
 """
+import random
+
 import pygame
 from game.config import *
 from assets.sprites import (
