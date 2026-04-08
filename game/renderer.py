@@ -2,6 +2,8 @@
 UNIMA Survivors - Renderer
 Handles all game world drawing with camera and scaling.
 """
+import random
+
 import pygame
 from game.config import *
 from assets.sprites import (
@@ -28,26 +30,99 @@ class Renderer:
         # Cache sprites
         self._cache_sprites()
 
+    # ========== FUNÇÕES AUXILIARES DE DESENHO ==========
+    def _px(self, surface, x, y, color):
+        """Draw a single pixel."""
+        if 0 <= x < surface.get_width() and 0 <= y < surface.get_height():
+            surface.set_at((x, y), color)
+    
+    def _rect(self, surface, x, y, w, h, color):
+        """Draw filled rectangle."""
+        for dy in range(h):
+            for dx in range(w):
+                self._px(surface, x + dx, y + dy, color)
+
+    # ========== SPRITES DE PROJÉTEIS ==========
+    def _create_shotgun_pellet(self):
+        """Cria projétil de espingarda"""
+        s = pygame.Surface((3, 3), pygame.SRCALPHA)
+        self._rect(s, 0, 0, 3, 3, (200, 180, 50))
+        self._px(s, 1, 1, (255, 220, 100))
+        return s
+    
+    def _create_rocket_sprite(self):
+        """Cria míssil da bazuca"""
+        s = pygame.Surface((6, 6), pygame.SRCALPHA)
+        self._rect(s, 1, 1, 4, 4, (200, 100, 30))
+        self._rect(s, 2, 0, 2, 2, (255, 150, 50))
+        self._rect(s, 2, 4, 2, 2, (255, 100, 30))
+        return s
+    
+    def _create_fire_sprite(self):
+        """Cria chama do coquetel molotov"""
+        s = pygame.Surface((8, 8), pygame.SRCALPHA)
+        colors = [(255, 100, 0), (255, 150, 0), (255, 200, 0)]
+        for i, c in enumerate(colors):
+            self._rect(s, i+1, i, 2, 2, c)
+            self._rect(s, i+1, 6-i, 2, 2, c)
+        return s
+    
+    def _create_mine_sprite(self):
+        """Cria mina terrestre"""
+        s = pygame.Surface((8, 8), pygame.SRCALPHA)
+        self._rect(s, 2, 2, 4, 4, (80, 80, 90))
+        self._rect(s, 3, 1, 2, 6, (60, 60, 70))
+        self._rect(s, 1, 3, 6, 2, (60, 60, 70))
+        self._px(s, 3, 3, (200, 50, 50))
+        return s
+    
+    def _create_slash_sprite(self):
+        """Cria efeito de corte da faquinha"""
+        s = pygame.Surface((12, 12), pygame.SRCALPHA)
+        for i in range(3):
+            self._rect(s, 9-i, i, 2, 1, (200, 200, 200))
+            self._rect(s, i, i, 2, 1, (200, 200, 200))
+        return s
+    
+    def _create_grenade_sprite(self):
+        """Cria granada do lançador"""
+        s = pygame.Surface((6, 6), pygame.SRCALPHA)
+        self._rect(s, 1, 1, 4, 4, (100, 150, 80))
+        self._rect(s, 2, 0, 2, 2, (150, 200, 120))
+        return s
+
     def _cache_sprites(self):
         """Pre-render all sprite variations."""
-        # Player: 4 directions x 4 frames
+        # Player
         self.player_sprites = {}
         for d in range(4):
             for f in range(4):
                 self.player_sprites[(d, f)] = create_player_sprite(d, f)
 
-        # Zombies: 3 variants x 4 frames
+        # Zombies
         self.zombie_sprites = {}
         for v in range(3):
             for f in range(4):
                 self.zombie_sprites[(v, f)] = create_zombie_sprite(v, f)
 
-        # Bullet
-        self.bullet_sprite = create_bullet_sprite()
+        # Bullet padrão (fallback)
+        self.default_bullet = create_bullet_sprite()
+        
+        # Bullet sprites para diferentes tipos de arma
+        self.bullet_sprites = {
+            'normal': create_bullet_sprite(),
+            'shotgun': self._create_shotgun_pellet(),
+            'explosive': self._create_rocket_sprite(),
+            'fire': self._create_fire_sprite(),
+            'mine': self._create_mine_sprite(),
+            'melee': self._create_slash_sprite(),
+            'grenade_launcher': self._create_grenade_sprite()
+        }
 
-        # Loot
+        # Loot - incluir TODOS os tipos
+        loot_types_to_create = ['health', 'ammo_pack', 'ammo_specific', 'weapon', 'xp']
         self.loot_sprites = {}
-        for lt in LOOT_TYPES:
+        for lt in loot_types_to_create:
             self.loot_sprites[lt] = create_loot_sprite(lt)
 
         # Tiles
@@ -58,9 +133,13 @@ class Renderer:
             T_WALL: [generate_tile_wall()],
             T_PARKING: [generate_tile_parking()],
             T_CONCRETE: [generate_tile_concrete()],
+<<<<<<< HEAD
             T_DOOR: [generate_tile_path()],  # doors look like path
             T_TREE: [generate_tile_tree(i) for i in range(4)],
             T_ROAD: [generate_tile_road(0), generate_tile_road(1)],
+=======
+            T_DOOR: [generate_tile_path()],
+>>>>>>> add-new-guns-type
         }
 
         # Cursor
@@ -97,7 +176,6 @@ class Renderer:
             for tx in range(start_tx, end_tx):
                 tile = tilemap[ty][tx]
                 sprites = self.tile_sprites.get(tile, self.tile_sprites[T_GRASS])
-                # Use position-based variant for grass
                 variant = (tx + ty) % len(sprites)
                 sprite = sprites[variant]
                 sx = tx * TILE_SIZE - int(cx)
@@ -111,16 +189,34 @@ class Renderer:
             dx = drop.x - cx
             dy = drop.y - cy + drop.bob_offset
             if -16 < dx < self.view_w + 16 and -16 < dy < self.view_h + 16:
-                sprite = self.loot_sprites.get(drop.type)
+                loot_type = None
+                
+                if isinstance(drop.loot_data, dict) and drop.loot_data.get('type') == 'weapon':
+                    loot_type = 'weapon'
+                elif isinstance(drop.loot_data, str):
+                    loot_type = drop.loot_data
+                elif isinstance(drop.loot_data, dict) and 'type' in drop.loot_data:
+                    loot_type = drop.loot_data['type']
+                else:
+                    loot_type = 'ammo_pack'
+                
+                sprite = self.loot_sprites.get(loot_type)
+                if not sprite and loot_type == 'weapon':
+                    sprite = self.loot_sprites.get('ammo_pack')
+                
                 if sprite:
                     gs.blit(sprite, (int(dx) - 6, int(dy) - 6))
 
-        # ── Draw bullets ──
+        # ── Draw bullets (COM SPRITES DIFERENTES POR TIPO) ──
         for b in bullets:
             bx = b['x'] - cx
             by = b['y'] - cy
-            if -8 < bx < self.view_w + 8 and -8 < by < self.view_h + 8:
-                gs.blit(self.bullet_sprite, (int(bx) - 2, int(by) - 2))
+            if -16 < bx < self.view_w + 16 and -16 < by < self.view_h + 16:
+                bullet_type = b.get('type', 'normal')
+                sprite = self.bullet_sprites.get(bullet_type, self.default_bullet)
+                sprite_w = sprite.get_width()
+                sprite_h = sprite.get_height()
+                gs.blit(sprite, (int(bx) - sprite_w//2, int(by) - sprite_h//2))
 
         # ── Draw enemies ──
         for enemy in enemies:
@@ -133,12 +229,10 @@ class Renderer:
                 sprite = self.zombie_sprites.get(key)
                 if sprite:
                     if enemy.hit_flash > 0:
-                        # Flash white
                         flash = sprite.copy()
                         flash.fill((255, 255, 255, 180), special_flags=pygame.BLEND_RGBA_ADD)
                         gs.blit(flash, (int(ex) - 8, int(ey) - 8))
                     elif not enemy.alive:
-                        # Fade out
                         alpha = max(0, 255 - enemy.death_timer * 17)
                         fade = sprite.copy()
                         fade.set_alpha(alpha)
@@ -163,9 +257,8 @@ class Renderer:
             key = (player.direction, player.anim_frame % 2)
             sprite = self.player_sprites.get(key)
             if sprite:
-                # Blink during invincibility
                 if player.invincible_timer > 0 and player.invincible_timer % 4 < 2:
-                    pass  # skip drawing (blink)
+                    pass
                 else:
                     gs.blit(sprite, (int(px_) - 8, int(py_) - 8))
 
@@ -187,3 +280,39 @@ class Renderer:
         """Convert screen coords to world coords."""
         return (sx / SCALE + self.cam_x,
                 sy / SCALE + self.cam_y)
+    
+    def _create_grenade_explosion(self):
+        """Cria sprite de explosão de granada"""
+        s = pygame.Surface((16, 16), pygame.SRCALPHA)
+        colors = [(255, 200, 50), (255, 150, 30), (255, 80, 20), (200, 50, 10)]
+        for i, color in enumerate(colors):
+            r = 8 - i
+            for dy in range(-r, r+1):
+                for dx in range(-r, r+1):
+                    if dx*dx + dy*dy <= r*r:
+                        self._px(s, 8 + dx, 8 + dy, color)
+        return s
+
+    def _create_fire_effect(self):
+            """Cria sprite de chamas"""
+            s = pygame.Surface((12, 12), pygame.SRCALPHA)
+            fire_colors = [(255, 100, 0), (255, 150, 0), (255, 200, 0), (255, 255, 100)]
+            for i in range(4):
+                offset = random.randint(-1, 1)
+                for y in range(3):
+                    for x in range(2):
+                        self._px(s, 2 + x + offset, 8 - i*2 + y, fire_colors[i])
+                        self._px(s, 8 + x + offset, 8 - i*2 + y, fire_colors[i])
+            return s
+        
+    def _create_mine_explosion(self):
+        """Cria sprite de explosão de mina"""
+        s = pygame.Surface((20, 20), pygame.SRCALPHA)
+        for i in range(5):
+            r = 10 - i
+            color = (200 - i*30, 100 - i*15, 50 - i*10)
+            for dy in range(-r, r+1):
+                for dx in range(-r, r+1):
+                    if dx*dx + dy*dy <= r*r and random.random() > 0.3:
+                        self._px(s, 10 + dx, 10 + dy, color)
+        return s
