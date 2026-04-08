@@ -188,14 +188,10 @@ class Game:
         self.spawner = EnemySpawner()
         self.effects = EffectsManager()
         self.game_time = 0
-<<<<<<< HEAD
         self.phase = 1
         self.phase_message_timer = 0
         self.phase_message_text = ""
         self.phase_message_subtext = ""
-=======
-        self.nearby_weapon = None
->>>>>>> add-new-guns-type
         self.state = STATE_PLAYING
 
     def run(self):
@@ -494,7 +490,6 @@ class Game:
                         self.effects.spawn_hit_particles(enemy.x, enemy.y, 4)
                         self.play_sound('hit')
 
-<<<<<<< HEAD
                     if killed:
                         self.player.kills += 1
                         self.effects.spawn_death_particles(enemy.x, enemy.y)
@@ -517,25 +512,6 @@ class Game:
                         # XP
                         if self.player.add_xp(enemy.xp_value):
                             self._trigger_level_up()
-=======
-                        if killed:
-                            self.player.kills += 1
-                            self.effects.spawn_death_particles(enemy.x, enemy.y)
-                            self.effects.shake(2, 4)
-                            
-                            from game.loot import roll_loot
-                            loot_items = roll_loot(enemy.x, enemy.y)
-                            if loot_items:
-                                for loot in loot_items:
-                                    self.loot_drops.append(loot)
-                            
-                            if self.player.add_xp(enemy.xp_value):
-                                self._trigger_level_up()
-
-                        if b in self.bullets:
-                            self.bullets.remove(b)
-                        break
->>>>>>> add-new-guns-type
 
 
         # Update enemies
@@ -629,7 +605,6 @@ class Game:
             # Calcular enemy_count e draw HUD
             enemy_count = len([e for e in self.enemies if e.alive])
             self.ui.draw_hud(self.screen, self.player,
-<<<<<<< HEAD
                              self.game_time, enemy_count, self.phase)
 
             # Phase 2 message (pause state)
@@ -660,9 +635,6 @@ class Game:
                 msg = self.ui.font_lg.render(self.phase_message_text, True, UI_GOLD)
                 mx = self.screen_w // 2 - msg.get_width() // 2
                 self.screen.blit(msg, (mx, 70))
-=======
-                             self.game_time, enemy_count, self)
->>>>>>> add-new-guns-type
 
             # Overlay states
             if self.state == STATE_INVENTORY:

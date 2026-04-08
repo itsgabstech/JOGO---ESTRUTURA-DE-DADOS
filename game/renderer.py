@@ -133,13 +133,9 @@ class Renderer:
             T_WALL: [generate_tile_wall()],
             T_PARKING: [generate_tile_parking()],
             T_CONCRETE: [generate_tile_concrete()],
-<<<<<<< HEAD
             T_DOOR: [generate_tile_path()],  # doors look like path
             T_TREE: [generate_tile_tree(i) for i in range(4)],
             T_ROAD: [generate_tile_road(0), generate_tile_road(1)],
-=======
-            T_DOOR: [generate_tile_path()],
->>>>>>> add-new-guns-type
         }
 
         # Cursor
