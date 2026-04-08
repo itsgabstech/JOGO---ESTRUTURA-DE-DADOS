@@ -76,6 +76,7 @@ class Enemy:
             self.hit_flash -= 1
         if self.attack_cooldown > 0:
             self.attack_cooldown -= 1
+        return None
 
     def take_damage(self, amount):
         """Apply damage. Returns True if killed."""
@@ -93,7 +94,9 @@ class Enemy:
             return False
         dx = abs(self.x - player.x)
         dy = abs(self.y - player.y)
-        if dx < 8 and dy < 8:
+        reach_x = (self.w + player.w) * 0.35
+        reach_y = (self.h + player.h) * 0.35
+        if dx < reach_x and dy < reach_y:
             self.attack_cooldown = 40  # ~0.67 seconds between attacks
             return True
         return False
@@ -161,3 +164,76 @@ class EnemySpawner:
             enemy.max_hp = int(enemy.max_hp * (1 + (self.difficulty - 1) * 0.3))
             enemy.hp = enemy.max_hp
             enemies.append(enemy)
+
+
+class ProfessorVital(Enemy):
+    """Final boss enemy: huge HP pool, relentless pursuit and projectile attacks."""
+
+    def __init__(self, x, y):
+        super().__init__(x, y, ZOMBIE_TANK)
+        self.name = "Professor Vital"
+        self.max_hp = 520
+        self.hp = self.max_hp
+        self.speed = 0.75
+        self.damage = 22
+        self.xp_value = 180
+        self.w = 96
+        self.h = 96
+        self.is_boss = True
+        self.projectile_cooldown = FPS * 3
+        self.speech_text = "EU SOU O BOSS! Essa prova é sem consulta!"
+        self.speech_timer = FPS * 8
+
+    def update(self, player_x, player_y, tilemap, all_enemies):
+        if not self.alive:
+            self.death_timer += 1
+            return None
+
+        dx = player_x - self.x
+        dy = player_y - self.y
+        dist = math.sqrt(dx * dx + dy * dy)
+
+        if dist > 1:
+            dx /= dist
+            dy /= dist
+            move_x = dx * self.speed
+            move_y = dy * self.speed
+
+            from game.campus_map import get_walkable
+            new_x = self.x + move_x
+            new_y = self.y + move_y
+            if get_walkable(tilemap, new_x, self.y):
+                self.x = new_x
+            if get_walkable(tilemap, self.x, new_y):
+                self.y = new_y
+
+        self.anim_timer += 1
+        if self.anim_timer >= 10:
+            self.anim_timer = 0
+            self.anim_frame = (self.anim_frame + 1) % 4
+
+        if self.hit_flash > 0:
+            self.hit_flash -= 1
+        if self.attack_cooldown > 0:
+            self.attack_cooldown -= 1
+        if self.speech_timer > 0:
+            self.speech_timer -= 1
+
+        self.projectile_cooldown -= 1
+        if self.projectile_cooldown > 0:
+            return None
+        self.projectile_cooldown = FPS * 3
+
+        length = max(1.0, dist)
+        vx = (player_x - self.x) / length
+        vy = (player_y - self.y) / length
+        return {
+            'x': self.x,
+            'y': self.y - self.h * 0.2,
+            'dx': vx * 3.2,
+            'dy': vy * 3.2,
+            'damage': 14,
+            'life': 220,
+            'hostile': True,
+            'kind': random.choice(['prova', 'no_lista']),
+        }
