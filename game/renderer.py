@@ -8,7 +8,8 @@ from assets.sprites import (
     create_player_sprite, create_zombie_sprite, create_bullet_sprite,
     create_loot_sprite, generate_tile_grass, generate_tile_path,
     generate_tile_building, generate_tile_wall, generate_tile_parking,
-    generate_tile_concrete, create_cursor_sprite
+    generate_tile_concrete, generate_tile_tree, generate_tile_road,
+    create_cursor_sprite
 )
 
 
@@ -58,6 +59,8 @@ class Renderer:
             T_PARKING: [generate_tile_parking()],
             T_CONCRETE: [generate_tile_concrete()],
             T_DOOR: [generate_tile_path()],  # doors look like path
+            T_TREE: [generate_tile_tree(i) for i in range(4)],
+            T_ROAD: [generate_tile_road(0), generate_tile_road(1)],
         }
 
         # Cursor
