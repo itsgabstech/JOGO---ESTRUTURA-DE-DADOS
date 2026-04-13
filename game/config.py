@@ -31,7 +31,8 @@ T_ROAD = 8
 # ─── Player ───
 PLAYER_SPEED = 1.8
 PLAYER_MAX_HP = 100
-PLAYER_START_AMMO = 60
+# Quantidade inicial alta para reduzir frustração de falta de munição no começo.
+PLAYER_START_AMMO = 180
 PLAYER_FIRE_RATE = 15  # frames between shots
 PLAYER_DAMAGE = 10
 BULLET_SPEED = 4.5
@@ -54,12 +55,14 @@ ENEMY_STATS = {
     ZOMBIE_TANK:   {'hp': 60, 'speed': 0.3, 'damage': 15, 'xp': 30, 'name': 'Zumbi Tank'},
 }
 
-# ─── Loot (Sistema Atualizado) ───
-LOOT_TYPES = ['health', 'ammo_pack', 'ammo_specific', 'weapon', 'xp']
-LOOT_DROP_CHANCE = 0.45
+# ─── Loot ───
+LOOT_TYPES = ['ammo', 'health', 'xp', 'speed', 'damage', 'armor', 'magnet', 'weapon']
+# Chance global de algum loot cair quando um inimigo morre.
+LOOT_DROP_CHANCE = 0.70
 LOOT_WEIGHTS = {
     'xp': 25,
-    'ammo': 35,
+    # Peso maior = maior frequência relativa de munição entre os drops.
+    'ammo': 80,
     'health': 20,
     'speed': 5,
     'damage': 5,
@@ -73,11 +76,15 @@ LOOT_NAMES = {
     'xp': 'Experiência',
 }
 LOOT_DESCRIPTIONS = {
-    'ammo': '+20 munição',
+    'ammo': '+60 munição',
     'health': 'Restaura 25 HP',
     'xp': '+XP bônus',
 }
-LOOT_STACKABLE = {'ammo_pack', 'health', 'xp'}
+LOOT_STACKABLE = {'ammo', 'health', 'xp'}
+# Munição recebida ao encostar no item de munição no mapa.
+AMMO_PICKUP_AMOUNT = 60
+# Chance extra independente para cada zumbi morto derrubar munição.
+AMMO_DROP_CHANCE_ON_KILL = 0.75
 
 # ─── Progression ───
 XP_BASE = 50
@@ -89,7 +96,8 @@ UPGRADES = [
     {'name': 'Cadência+', 'desc': '+12% cadência de tiro', 'stat': 'fire_rate', 'value': 0.12},
     {'name': 'Vida+', 'desc': '+20 HP máximo', 'stat': 'max_hp', 'value': 20},
     {'name': 'Velocidade+', 'desc': '+8% velocidade', 'stat': 'speed', 'value': 0.08},
-    {'name': 'Coleta+', 'desc': '+25% alcance de coleta', 'stat': 'pickup_range', 'value': 0.25},
+    {'name': 'Coleta+', 'desc': '+25% alcance', 'stat': 'pickup_range', 'value': 0.25},
+    {'name': 'Munição+', 'desc': '+40 munição', 'stat': 'ammo', 'value': 40},
 ]
 
 # ─── Combat modes ───

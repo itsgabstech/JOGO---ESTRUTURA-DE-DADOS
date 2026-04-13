@@ -80,16 +80,10 @@ class LootDrop:
         }
 
 
-# ─────────────────────────────────────────────────────────────
-#  Geração de drops
-# ─────────────────────────────────────────────────────────────
-
-def _make_weapon_drop(x, y, slot):
-    candidates = [
-        (k, v) for k, v in WEAPONS_DATA.items()
-        if v.get('slot') == slot and v['name'] != "Faquinha"
-    ]
-    if not candidates:
+def roll_loot(x, y):
+    """Roll for loot drop. Returns LootDrop or None."""
+    # Primeiro: decide se vai cair algum item.
+    if random.random() > LOOT_DROP_CHANCE:
         return None
     key, data = random.choice(candidates)
     weapon_copy = data.copy()
@@ -134,7 +128,16 @@ def roll_loot(x, y):
     if random.random() < 0.10:
         drops.append(LootDrop(x, y, 'health'))
 
-    return drops if drops else None
+    # Segundo: escolhe qual item caiu usando pesos configuráveis.
+    total = sum(LOOT_WEIGHTS.values())
+    r = random.uniform(0, total)
+    cumulative = 0
+    chosen = 'xp'
+    for ltype, weight in LOOT_WEIGHTS.items():
+        cumulative += weight
+        if r <= cumulative:
+            chosen = ltype
+            break
 
 
 # ─────────────────────────────────────────────────────────────
@@ -168,7 +171,8 @@ def try_pickup(player, loot_drops, game_ref=None):
                     drop.alive = False
                     collected.append(drop)
                 elif drop.type == 'ammo':
-                    player.ammo += 20
+                    # Munição é aplicada instantaneamente (não vai para inventário).
+                    player.ammo += AMMO_PICKUP_AMOUNT
                     drop.alive = False
                     collected.append(drop)
                 else:

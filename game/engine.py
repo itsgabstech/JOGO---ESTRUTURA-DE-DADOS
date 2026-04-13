@@ -505,6 +505,11 @@ class Game:
                                 self.spawner.phase_multiplier = 2
                             self.play_sound('levelup')
 
+                        # Rola uma chance adicional (além do loot normal) para forçar
+                        # mais sustentabilidade de munição ao longo da partida.
+                        if random.random() < AMMO_DROP_CHANCE_ON_KILL:
+                            self.loot_drops.append(LootDrop(enemy.x, enemy.y, 'ammo'))
+
                         # Roll loot
                         loot = roll_loot(enemy.x, enemy.y)
                         if loot:
