@@ -115,7 +115,7 @@ class EnemySpawner:
         self.total_time = 0
         self.phase_multiplier = 1
 
-    def update(self, player_x, player_y, enemies, tilemap):
+    def update(self, player_x, player_y, enemies, tilemap, phase=1):
         """Spawn enemies around the player."""
         self.total_time += 1
         self.timer += 1
@@ -150,17 +150,23 @@ class EnemySpawner:
             if not get_walkable(tilemap, sx, sy):
                 continue
 
-            # Choose variant based on difficulty
+            # Choose variant based on difficulty and phase.
             r = random.random()
-            if r < 0.1 * self.difficulty and self.difficulty > 1.5:
+            if phase >= 3 and r < 0.18:
+                variant = ZOMBIE_BRUTE
+            elif r < 0.12 * self.difficulty and self.difficulty > 1.6:
                 variant = ZOMBIE_TANK
-            elif r < 0.25 * self.difficulty:
+            elif r < 0.30 * self.difficulty:
                 variant = ZOMBIE_FAST
             else:
                 variant = ZOMBIE_COMMON
 
-            # Scale HP with difficulty
+            # Scale HP with difficulty, and make phase 3 enemies tougher.
             enemy = Enemy(sx, sy, variant)
+            if phase >= 3:
+                enemy.speed *= 1.25
+                enemy.max_hp = int(enemy.max_hp * 1.25)
+
             enemy.max_hp = int(enemy.max_hp * (1 + (self.difficulty - 1) * 0.3))
             enemy.hp = enemy.max_hp
             enemies.append(enemy)

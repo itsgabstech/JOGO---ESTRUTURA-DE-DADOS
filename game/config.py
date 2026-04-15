@@ -44,15 +44,18 @@ ENEMY_SPAWN_MIN = 20   # minimum frames between spawns
 ENEMY_SPAWN_DIST_MIN = 120
 ENEMY_SPAWN_DIST_MAX = 200
 MAX_ENEMIES = 120
+PHASE3_KILLS = 23
 
 ZOMBIE_COMMON = 0
 ZOMBIE_FAST = 1
 ZOMBIE_TANK = 2
+ZOMBIE_BRUTE = 3
 
 ENEMY_STATS = {
     ZOMBIE_COMMON: {'hp': 20, 'speed': 0.5, 'damage': 8, 'xp': 10, 'name': 'Zumbi'},
     ZOMBIE_FAST:   {'hp': 12, 'speed': 1.0, 'damage': 5, 'xp': 15, 'name': 'Zumbi Veloz'},
     ZOMBIE_TANK:   {'hp': 60, 'speed': 0.3, 'damage': 15, 'xp': 30, 'name': 'Zumbi Tank'},
+    ZOMBIE_BRUTE:  {'hp': 80, 'speed': 0.6, 'damage': 18, 'xp': 45, 'name': 'Zumbi Bruto'},
 }
 
 # ─── Loot ───

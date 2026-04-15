@@ -519,7 +519,7 @@ class Game:
         # Update enemies
         self._try_spawn_professor_vital()
         self.spawner.update(self.player.x, self.player.y,
-                            self.enemies, self.tilemap)
+                            self.enemies, self.tilemap, self.phase)
 
         for enemy in self.enemies:
             projectile = enemy.update(self.player.x, self.player.y,
@@ -585,6 +585,9 @@ class Game:
         # Update camera
         self.renderer.update_camera(self.player.x, self.player.y)
 
+        # Phase progression
+        self._update_phase_progression()
+
         # Phase message timer
         if self.phase_message_timer > 0:
             self.phase_message_timer -= 1
@@ -600,6 +603,20 @@ class Game:
         self.upgrade_options = options
         self.upgrade_selection = 0
         self.state = STATE_UPGRADE
+
+    def _update_phase_progression(self):
+        """Advance to phase 3 once the player reaches the kill threshold."""
+        if self.phase >= 3 or not self.player:
+            return
+
+        if self.player.kills >= PHASE3_KILLS:
+            self.phase = 3
+            self.spawner.difficulty = max(self.spawner.difficulty, 2.2)
+            self.spawner.spawn_rate = max(ENEMY_SPAWN_MIN,
+                                          int(ENEMY_SPAWN_RATE / self.spawner.difficulty))
+            self.phase_message_timer = FPS * 4
+            self.phase_message_text = "FASE 3"
+            self.phase_message_subtext = "Agora os inimigos são mais rápidos"
 
     def _draw(self):
         """Render current frame."""
@@ -655,9 +672,25 @@ class Game:
 
             # Additional temporary phase message (legacy timer)
             elif self.phase_message_timer > 0 and self.phase_message_text:
-                msg = self.ui.font_lg.render(self.phase_message_text, True, UI_GOLD)
-                mx = self.screen_w // 2 - msg.get_width() // 2
-                self.screen.blit(msg, (mx, 70))
+                if self.phase == 3:
+                    title = self.ui.font_lg.render(self.phase_message_text, True, (255, 255, 255))
+                    subtitle = self.ui.font_sm.render(self.phase_message_subtext, True, (255, 255, 255))
+                    title_x = self.screen_w // 2 - title.get_width() // 2
+                    title_y = self.screen_h // 2 - 60
+                    bar_y = title_y + title.get_height() + 8
+                    bar_w = max(title.get_width(), subtitle.get_width()) + 40
+                    bar_x = self.screen_w // 2 - bar_w // 2
+
+                    # Red base below the title
+                    pygame.draw.rect(self.screen, (180, 30, 30),
+                                     (bar_x, bar_y, bar_w, 28), border_radius=6)
+                    self.screen.blit(title, (self.screen_w // 2 - title.get_width() // 2, title_y))
+                    self.screen.blit(subtitle, (self.screen_w // 2 - subtitle.get_width() // 2,
+                                                bar_y + 36))
+                else:
+                    msg = self.ui.font_lg.render(self.phase_message_text, True, UI_GOLD)
+                    mx = self.screen_w // 2 - msg.get_width() // 2
+                    self.screen.blit(msg, (mx, 70))
 
             # Overlay states
             if self.state == STATE_INVENTORY:
