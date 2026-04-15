@@ -26,6 +26,8 @@ class Player:
         self.hp = self.max_hp
         self.speed = PLAYER_SPEED
         self.pickup_range = PLAYER_PICKUP_RANGE
+        self.weapon_level = 1
+        self.damage = PLAYER_DAMAGE
         self.armor = 0
 
         # State

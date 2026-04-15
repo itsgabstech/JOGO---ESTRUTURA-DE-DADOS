@@ -65,7 +65,7 @@ class LootDrop:
                 }
             if self.loot_data.get('type') == 'ammo_specific':
                 wkey = self.loot_data['weapon_key']
-                amt  = self.loot_data['amount']
+                amt = self.loot_data['amount']
                 return {
                     'type': 'ammo_pack',
                     'name': f"Municao {WEAPONS_DATA.get(wkey, {}).get('name', wkey)}",
@@ -80,10 +80,16 @@ class LootDrop:
         }
 
 
-def roll_loot(x, y):
-    """Roll for loot drop. Returns LootDrop or None."""
-    # Primeiro: decide se vai cair algum item.
-    if random.random() > LOOT_DROP_CHANCE:
+# ─────────────────────────────────────────────────────────────
+#  Geração de drops
+# ─────────────────────────────────────────────────────────────
+
+def _make_weapon_drop(x, y, slot):
+    candidates = [
+        (k, v) for k, v in WEAPONS_DATA.items()
+        if v.get('slot') == slot and v['name'] != "Faquinha"
+    ]
+    if not candidates:
         return None
     key, data = random.choice(candidates)
     weapon_copy = data.copy()
@@ -128,16 +134,7 @@ def roll_loot(x, y):
     if random.random() < 0.10:
         drops.append(LootDrop(x, y, 'health'))
 
-    # Segundo: escolhe qual item caiu usando pesos configuráveis.
-    total = sum(LOOT_WEIGHTS.values())
-    r = random.uniform(0, total)
-    cumulative = 0
-    chosen = 'xp'
-    for ltype, weight in LOOT_WEIGHTS.items():
-        cumulative += weight
-        if r <= cumulative:
-            chosen = ltype
-            break
+    return drops if drops else None
 
 
 # ─────────────────────────────────────────────────────────────
@@ -151,39 +148,79 @@ def try_pickup(player, loot_drops, game_ref=None):
       - Arma: precisa pressionar Q em cima do drop
     """
     collected = []
-    weapons_on_ground = []  # Lista de armas no chão para interação
 
     for drop in loot_drops[:]:
         if not drop.alive:
             continue
-        dist = drop.distance_to(player.x, player.y)
-        if dist <= player.pickup_range:
-            # XP is auto-consumed
-            if drop.type == 'xp':
-                player.add_xp(drop.to_item().get('count', 1) * 15)
-                drop.alive = False
-                collected.append(drop)
-            else:
-                item = drop.to_item()
-                # Try instant use for some types
-                if drop.type == 'health' and player.hp < player.max_hp:
-                    player.heal(25)
-                    drop.alive = False
-                    collected.append(drop)
-                elif drop.type == 'ammo':
-                    # Munição é aplicada instantaneamente (não vai para inventário).
-                    player.ammo += AMMO_PICKUP_AMOUNT
-                    drop.alive = False
-                    collected.append(drop)
-                else:
-                    if player.add_to_inventory(item):
-                        drop.alive = False
-                        collected.append(drop)
+        if not drop.can_pickup():
+            continue
+        if drop.distance_to(player.x, player.y) > player.pickup_range:
+            continue
+
+        data = drop.loot_data
+
+        # ── ARMA ──────────────────────────────────────────────
+        if isinstance(data, dict) and data.get('type') == 'weapon':
+            # Armas NÃO são coletadas automaticamente
+            # Apenas indica que tem arma perto
+            if game_ref:
+                game_ref.nearby_weapon = drop
+            continue  # Não coleta automaticamente
+
+        # ── MUNICAO ESPECIFICA ─────────────────────────────────
+        elif isinstance(data, dict) and data.get('type') == 'ammo_specific':
+            weapon_key = data['weapon_key']
+            amount = data['amount']
+
+            ammo_type = AMMO_TYPES.get(weapon_key)
+            if ammo_type and ammo_type in player.ammo:
+                player.ammo[ammo_type] += amount
+
+                # Tenta recarregar se arma correspondente estiver equipada
+                for equipped in [player.slot_1, player.slot_2]:
+                    if equipped is None:
+                        continue
+                    eq_key = equipped['name'].lower().replace(' ', '_')
+                    if eq_key == weapon_key and equipped.get('max_ammo', 0) > 0:
+                        need = equipped['max_ammo'] - equipped['current_ammo']
+                        give = min(need, player.ammo[ammo_type])
+                        equipped['current_ammo'] += give
+                        player.ammo[ammo_type] -= give
+
+                weapon_name = WEAPONS_DATA.get(weapon_key, {}).get('name', weapon_key)
+                print(f"[LOOT] +{amount} municao de {weapon_name}")
+
+            drop.alive = False
+            collected.append(drop)
+
+        # ── AMMO PACK GENERICO ──────────────────────────────
+        elif data == 'ammo_pack':
+            current = player.get_active_weapon()
+            if current and current.get('name') != "Faquinha":
+                ammo_given = random.randint(10, 25)
+                player.add_ammo(current['name'], ammo_given)
+                print(f"[LOOT] +{ammo_given} municao para {current['name']}")
+            drop.alive = False
+            collected.append(drop)
+
+        # ── KIT MEDICO ─────────────────────────────────────────
+        elif data == 'health':
+            player.heal(20)
+            drop.alive = False
+            collected.append(drop)
+            print("[LOOT] +20 HP")
+
+        # ── XP ────────────────────────────────────────────────
+        elif data == 'xp':
+            player.add_xp(15)
+            drop.alive = False
+            collected.append(drop)
+
     return collected
 
 
 def try_equip_weapon(player, loot_drops, drop):
-    """Tenta equipar uma arma específica do chão"""
+    """Tenta equipar uma arma específica do chão (interação manual)"""
     if not drop or not drop.alive:
         return False
     
@@ -191,12 +228,12 @@ def try_equip_weapon(player, loot_drops, drop):
     if not isinstance(data, dict) or data.get('type') != 'weapon':
         return False
     
-    weapon_data = data['data']
-    slot = data['slot']
-    
     # Verifica se o jogador está perto o suficiente
     if drop.distance_to(player.x, player.y) > player.pickup_range:
         return False
+    
+    weapon_data = data['data']
+    slot = data['slot']
     
     old_weapon = player.equip_weapon(weapon_data, slot)
     

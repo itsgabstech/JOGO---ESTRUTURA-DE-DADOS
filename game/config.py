@@ -35,6 +35,10 @@ PLAYER_MAX_HP = 100
 PLAYER_START_AMMO = 180
 PLAYER_FIRE_RATE = 15  # frames between shots
 PLAYER_DAMAGE = 10
+PLAYER_INV_SIZE = 16  # Tamanho do inventário (slots de armas)
+PLAYER_PICKUP_RANGE = 50  # Alcance de coleta de itens (pixels)
+
+# ─── Bullets ───
 BULLET_SPEED = 4.5
 BULLET_RANGE = 150
 
@@ -50,9 +54,9 @@ ZOMBIE_FAST = 1
 ZOMBIE_TANK = 2
 
 ENEMY_STATS = {
-    ZOMBIE_COMMON: {'hp': 20, 'speed': 0.5, 'damage': 8, 'xp': 10, 'name': 'Zumbi'},
-    ZOMBIE_FAST:   {'hp': 12, 'speed': 1.0, 'damage': 5, 'xp': 15, 'name': 'Zumbi Veloz'},
-    ZOMBIE_TANK:   {'hp': 60, 'speed': 0.3, 'damage': 15, 'xp': 30, 'name': 'Zumbi Tank'},
+    ZOMBIE_COMMON: {'hp': 20, 'speed': 0.5, 'damage': 8, 'xp': 5, 'name': 'Zumbi'},
+    ZOMBIE_FAST:   {'hp': 12, 'speed': 1.0, 'damage': 5, 'xp': 8, 'name': 'Zumbi Veloz'},
+    ZOMBIE_TANK:   {'hp': 60, 'speed': 0.3, 'damage': 15, 'xp': 15, 'name': 'Zumbi Tank'},
 }
 
 # ─── Loot ───
@@ -74,11 +78,15 @@ LOOT_NAMES = {
     'ammo_pack': 'Pacote de Munição',
     'health': 'Kit Médico',
     'xp': 'Experiência',
+    'ammo': 'Munição',
+    'weapon': 'Arma',
 }
 LOOT_DESCRIPTIONS = {
     'ammo': '+60 munição',
     'health': 'Restaura 25 HP',
     'xp': '+XP bônus',
+    'ammo_pack': '+60 munição para arma atual',
+    'weapon': 'Nova arma',
 }
 LOOT_STACKABLE = {'ammo', 'health', 'xp'}
 # Munição recebida ao encostar no item de munição no mapa.
@@ -87,8 +95,8 @@ AMMO_PICKUP_AMOUNT = 60
 AMMO_DROP_CHANCE_ON_KILL = 0.75
 
 # ─── Progression ───
-XP_BASE = 50
-XP_GROWTH = 1.3  # multiplier per level
+XP_BASE = 80
+XP_GROWTH = 1.4
 MAX_LEVEL = 30
 
 UPGRADES = [
@@ -123,3 +131,9 @@ LOOT_ICONS = {
     'weapon': '🔫',
     'xp': '⭐'
 }
+
+# ─── Phase Progression ───
+PHASE1_KILLS = 0      # Fase inicial
+PHASE2_KILLS = 30     # Começa fase 2 após 20 kills (era fase 3)
+PHASE3_KILLS = 90     # Começa fase 3 após 60 kills (era fase 4)
+PHASE4_KILLS = 150    # Começa fase 4 após 120 kills (era fase 2)

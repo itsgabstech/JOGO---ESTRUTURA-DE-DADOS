@@ -8,7 +8,7 @@ import math
 from game import player
 from game.config import *
 from game.player import Player
-from game.enemies import Enemy, EnemySpawner
+from game.enemies import Enemy, EnemySpawner, ProfessorVital
 from game.campus_map import generate_campus_map, get_spawn_points
 from game.loot import LootDrop, roll_loot, try_pickup, try_equip_weapon
 from game.effects import EffectsManager
@@ -60,10 +60,13 @@ class Game:
         self.player = None
         self.enemies = []
         self.bullets = []
+        self.enemy_projectiles = []
         self.loot_drops = []
         self.spawner = None
         self.game_time = 0
         self.nearby_weapon = None
+        self.boss_spawned = False
+        self.boss_score_threshold = 180
 
         # Upgrade selection
         self.upgrade_options = []
@@ -184,10 +187,12 @@ class Game:
         self.player.combat_mode = self.combat_mode
         self.enemies = []
         self.bullets = []
+        self.enemy_projectiles = []
         self.loot_drops = []
         self.spawner = EnemySpawner()
         self.effects = EffectsManager()
         self.game_time = 0
+        self.boss_spawned = False
         self.phase = 1
         self.phase_message_timer = 0
         self.phase_message_text = ""
@@ -483,69 +488,67 @@ class Game:
                     dx = b['x'] - enemy.x
                     dy = b['y'] - enemy.y
                     hit_distance = 10 if b.get('type') == 'melee' else 7
-                    if abs(dx) < hit_distance and abs(dy) < hit_distance:
+                    hit_x = max(hit_distance, int(enemy.w * 0.45))
+                    hit_y = max(hit_distance, int(enemy.h * 0.45))
+                    if abs(dx) < hit_x and abs(dy) < hit_y:
                         killed = enemy.take_damage(b['damage'])
                         self.player.total_damage_dealt += b['damage']
                         self.effects.add_damage_number(enemy.x, enemy.y, b['damage'])
                         self.effects.spawn_hit_particles(enemy.x, enemy.y, 4)
                         self.play_sound('hit')
 
-                    if killed:
-                        self.player.kills += 1
-                        self.effects.spawn_death_particles(enemy.x, enemy.y)
-                        self.effects.shake(2, 4)
-                        # Phase 2 trigger at 20 kills
-                        if self.player.kills >= 20 and self.phase == 1:
-                            self.phase = 2
-                            self.phase_message_text = "VOCÊ ENTROU NA FASE 2!"
-                            self.phase_message_subtext = "BOA SORTE!!"
-                            self.phase_message_timer = 0
-                            self.state = STATE_PHASE2
-                            if hasattr(self.spawner, 'phase_multiplier'):
-                                self.spawner.phase_multiplier = 2
-                            self.play_sound('levelup')
+                        if killed:
+                            self.player.kills += 1
+                            self.effects.spawn_death_particles(enemy.x, enemy.y)
+                            self.effects.shake(2, 4)
+                            
+                            from game.loot import roll_loot
+                            loot_items = roll_loot(enemy.x, enemy.y)
+                            if loot_items:
+                                for loot in loot_items:
+                                    self.loot_drops.append(loot)
+                            
+                            if self.player.add_xp(enemy.xp_value):
+                                self._trigger_level_up()
 
-                        # FASE 4
-                    if self.player.kills >= 70 and self.phase == 3:
-                        self.phase = 4
-                        self.phase_message_text = "FASE 4 INICIADA"
-                        self.phase_message_subtext = "ELES NÃO PARAM DE VIR..."
-                        self.phase_message_timer = 0
-                        self.state = STATE_PHASE2
-
-                        if hasattr(self.spawner, 'phase_multiplier'):
-                            self.spawner.phase_multiplier = 4
-
-                        self.spawner.difficulty += 0.5
-
-                        self.play_sound('levelup')
-
-                        # Rola uma chance adicional (além do loot normal) para forçar
-                        # mais sustentabilidade de munição ao longo da partida.
-                        if random.random() < AMMO_DROP_CHANCE_ON_KILL:
-                            self.loot_drops.append(LootDrop(enemy.x, enemy.y, 'ammo'))
-
-                        # Roll loot
-                        loot = roll_loot(enemy.x, enemy.y)
-                        if loot:
-                            self.loot_drops.append(loot)
-                        # XP
-                        if self.player.add_xp(enemy.xp_value):
-                            self._trigger_level_up()
+                        if b in self.bullets:
+                            self.bullets.remove(b)
+                        break
 
 
         # Update enemies
+        self._try_spawn_professor_vital()
         self.spawner.update(self.player.x, self.player.y,
-                            self.enemies, self.tilemap)
+                            self.enemies, self.tilemap, self.phase)
 
         for enemy in self.enemies:
-            enemy.update(self.player.x, self.player.y,
-                        self.tilemap, self.enemies)
+            projectile = enemy.update(self.player.x, self.player.y,
+                                      self.tilemap, self.enemies)
+            if projectile:
+                self.enemy_projectiles.append(projectile)
             if enemy.alive and enemy.collides_with_player(self.player):
                 self.player.take_damage(enemy.damage)
                 if not self.player.alive:
                     break
                 self.effects.shake(3, 6)
+
+        # Update hostile projectiles from boss
+        for proj in self.enemy_projectiles[:]:
+            proj['x'] += proj['dx']
+            proj['y'] += proj['dy']
+            proj['life'] -= 1
+            if proj['life'] <= 0:
+                self.enemy_projectiles.remove(proj)
+                continue
+
+            hit_x = abs(proj['x'] - self.player.x) < 8
+            hit_y = abs(proj['y'] - self.player.y) < 8
+            if hit_x and hit_y:
+                self.player.take_damage(proj['damage'])
+                self.enemy_projectiles.remove(proj)
+                if not self.player.alive:
+                    break
+                self.effects.shake(4, 7)
 
         # Clean dead enemies (after fade)
         self.enemies = [e for e in self.enemies
@@ -582,6 +585,9 @@ class Game:
         # Update camera
         self.renderer.update_camera(self.player.x, self.player.y)
 
+        # Phase progression
+        self._update_phase_progression()
+
         # Phase message timer
         if self.phase_message_timer > 0:
             self.phase_message_timer -= 1
@@ -597,6 +603,20 @@ class Game:
         self.upgrade_options = options
         self.upgrade_selection = 0
         self.state = STATE_UPGRADE
+
+    def _update_phase_progression(self):
+        """Advance to phase 3 once the player reaches the kill threshold."""
+        if self.phase >= 3 or not self.player:
+            return
+
+        if self.player.kills >= PHASE3_KILLS:
+            self.phase = 3
+            self.spawner.difficulty = max(self.spawner.difficulty, 2.2)
+            self.spawner.spawn_rate = max(ENEMY_SPAWN_MIN,
+                                          int(ENEMY_SPAWN_RATE / self.spawner.difficulty))
+            self.phase_message_timer = FPS * 4
+            self.phase_message_text = "FASE 3"
+            self.phase_message_subtext = "Agora os inimigos são mais rápidos"
 
     def _draw(self):
         """Render current frame."""
@@ -619,7 +639,7 @@ class Game:
             shake = self.effects.get_shake_offset()
             self.renderer.draw_world(
                 self.screen, self.tilemap, self.player,
-                self.enemies, self.bullets, self.loot_drops,
+                self.enemies, self.bullets + self.enemy_projectiles, self.loot_drops,
                 self.effects, shake)
 
             # Calcular enemy_count e draw HUD
@@ -652,9 +672,25 @@ class Game:
 
             # Additional temporary phase message (legacy timer)
             elif self.phase_message_timer > 0 and self.phase_message_text:
-                msg = self.ui.font_lg.render(self.phase_message_text, True, UI_GOLD)
-                mx = self.screen_w // 2 - msg.get_width() // 2
-                self.screen.blit(msg, (mx, 70))
+                if self.phase == 3:
+                    title = self.ui.font_lg.render(self.phase_message_text, True, (255, 255, 255))
+                    subtitle = self.ui.font_sm.render(self.phase_message_subtext, True, (255, 255, 255))
+                    title_x = self.screen_w // 2 - title.get_width() // 2
+                    title_y = self.screen_h // 2 - 60
+                    bar_y = title_y + title.get_height() + 8
+                    bar_w = max(title.get_width(), subtitle.get_width()) + 40
+                    bar_x = self.screen_w // 2 - bar_w // 2
+
+                    # Red base below the title
+                    pygame.draw.rect(self.screen, (180, 30, 30),
+                                     (bar_x, bar_y, bar_w, 28), border_radius=6)
+                    self.screen.blit(title, (self.screen_w // 2 - title.get_width() // 2, title_y))
+                    self.screen.blit(subtitle, (self.screen_w // 2 - subtitle.get_width() // 2,
+                                                bar_y + 36))
+                else:
+                    msg = self.ui.font_lg.render(self.phase_message_text, True, UI_GOLD)
+                    mx = self.screen_w // 2 - msg.get_width() // 2
+                    self.screen.blit(msg, (mx, 70))
 
             # Overlay states
             if self.state == STATE_INVENTORY:
@@ -670,3 +706,28 @@ class Game:
                                        self.game_time)
 
         pygame.display.flip()
+
+    def _try_spawn_professor_vital(self, force=False):
+        """Spawn final boss by score or by reaching final map area."""
+        if self.boss_spawned or not self.player or not self.player.alive:
+            return
+
+        score = self.player.kills * 10
+        reached_final_area = (
+            self.player.x > MAP_PX_W * 0.82 and
+            self.player.y > MAP_PX_H * 0.72
+        )
+        if not force and score < self.boss_score_threshold and not reached_final_area:
+            return
+
+        spawn_x = min(MAP_PX_W - TILE_SIZE * 3, self.player.x + 140)
+        spawn_y = min(MAP_PX_H - TILE_SIZE * 3, self.player.y + 100)
+        from game.campus_map import get_walkable
+        if not get_walkable(self.tilemap, spawn_x, spawn_y):
+            spawn_x = self.player.x + 60
+            spawn_y = self.player.y + 60
+
+        self.enemies.append(ProfessorVital(spawn_x, spawn_y))
+        self.boss_spawned = True
+        print("PROFESSOR VITAL: EU SOU O BOSS!")
+        print("A prova final começou! Aqui é sem consulta!")
