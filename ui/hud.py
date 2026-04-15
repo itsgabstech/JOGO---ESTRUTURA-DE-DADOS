@@ -45,7 +45,7 @@ class UI:
         self.font_subtitle = pygame.font.SysFont('consolas', 20)
         self.font_menu = pygame.font.SysFont('consolas', 22)
 
-    def draw_hud(self, surface, player, game_time, enemy_count, phase):
+    def draw_hud(self, surface, player, game_time, enemy_count, phase, game_ref=None):
         """Draw in-game HUD."""
         panel = generate_ui_panel(200, 100, 190)
         surface.blit(panel, (8, 8))
@@ -65,11 +65,6 @@ class UI:
         # Phase
         phase_text = self.font_sm.render(f"Fase {phase}", True, UI_ACCENT)
         surface.blit(phase_text, (16, 78))
-
-        # Weapon
-        wpn_text = self.font_sm.render(
-            f"Arma Nv.{player.weapon_level} | DMG:{player.damage}", True, UI_TEXT)
-        surface.blit(wpn_text, (16, 84))
 
         # ── Top-right: Timer, Kills ──
         panel2 = generate_ui_panel(160, 56, 190)
@@ -144,12 +139,12 @@ class UI:
         slot2_color = UI_GOLD if player.active_slot == 2 else UI_TEXT
         s2_surface = self.font_sm.render(slot2_text, True, slot2_color)
 
-        # Desenha os dois slots
-        surface.blit(s1_surface, (16, 66))
-        surface.blit(s2_surface, (16, 84))
+        # Desenha os dois slots (ajustado Y para não sobrepor a fase)
+        surface.blit(s1_surface, (16, 100))
+        surface.blit(s2_surface, (16, 118))
 
         # Borda no slot ativo
-        active_y = 66 if player.active_slot == 1 else 84
+        active_y = 100 if player.active_slot == 1 else 118
         pygame.draw.rect(surface, UI_ACCENT, (12, active_y - 2, 220, 18), 1)
 
         # Estoque de munição de TODAS as armas (canto inferior centro-esquerda)
@@ -161,7 +156,7 @@ class UI:
             if stock > 0:
                 from game.weapons_data import WEAPONS_DATA
                 wname = WEAPONS_DATA.get(wkey, {}).get('name', wkey)
-                icon  = AMMO_ICONS.get(ammo_type, '📦')
+                icon = AMMO_ICONS.get(ammo_type, '📦')
                 all_ammo_lines.append(f"{icon} {wname}: {stock}")
 
         if all_ammo_lines:
@@ -180,6 +175,7 @@ class UI:
         inv_hint = self.font_sm.render("[I] Inventario", True, UI_BLUE)
         surface.blit(inv_hint, (self.sw - 110, self.sh - 40))
 
+        # Mensagem de arma próxima
         if game_ref and hasattr(game_ref, 'nearby_weapon') and game_ref.nearby_weapon:
             weapon_data = game_ref.nearby_weapon.loot_data.get('data', {})
             weapon_name = weapon_data.get('name', 'Arma')

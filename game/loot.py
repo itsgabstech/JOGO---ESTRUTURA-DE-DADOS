@@ -148,34 +148,76 @@ def try_pickup(player, loot_drops, game_ref=None):
       - Arma: precisa pressionar Q em cima do drop
     """
     collected = []
-    weapons_on_ground = []  # Lista de armas no chão para interação
 
     for drop in loot_drops[:]:
         if not drop.alive:
             continue
-        dist = drop.distance_to(player.x, player.y)
-        if dist <= player.pickup_range:
-            # XP is auto-consumed
-            if drop.type == 'xp':
-                player.add_xp(drop.to_item().get('count', 1) * 15)
-                drop.alive = False
-                collected.append(drop)
-            else:
-                item = drop.to_item()
-                # Try instant use for some types
-                if drop.type == 'health' and player.hp < player.max_hp:
-                    player.heal(25)
-                    drop.alive = False
-                    collected.append(drop)
-                elif drop.type == 'ammo':
-                    player.ammo += 20
-                    drop.alive = False
-                    collected.append(drop)
-                else:
-                    if player.add_to_inventory(item):
-                        drop.alive = False
-                        collected.append(drop)
+        if not drop.can_pickup():
+            continue
+        if drop.distance_to(player.x, player.y) > player.pickup_range:
+            continue
+
+        data = drop.loot_data
+
+        # ── ARMA ──────────────────────────────────────────────
+        if isinstance(data, dict) and data.get('type') == 'weapon':
+            # Armas NÃO são coletadas automaticamente
+            # Apenas indica que tem arma perto
+            if game_ref:
+                game_ref.nearby_weapon = drop
+            continue  # Não coleta automaticamente
+
+        # ── MUNICAO ESPECIFICA ─────────────────────────────────
+        elif isinstance(data, dict) and data.get('type') == 'ammo_specific':
+            weapon_key = data['weapon_key']
+            amount = data['amount']
+
+            ammo_type = AMMO_TYPES.get(weapon_key)
+            if ammo_type and ammo_type in player.ammo:
+                player.ammo[ammo_type] += amount
+
+                # Tenta recarregar se arma correspondente estiver equipada
+                for equipped in [player.slot_1, player.slot_2]:
+                    if equipped is None:
+                        continue
+                    eq_key = equipped['name'].lower().replace(' ', '_')
+                    if eq_key == weapon_key and equipped.get('max_ammo', 0) > 0:
+                        need = equipped['max_ammo'] - equipped['current_ammo']
+                        give = min(need, player.ammo[ammo_type])
+                        equipped['current_ammo'] += give
+                        player.ammo[ammo_type] -= give
+
+                weapon_name = WEAPONS_DATA.get(weapon_key, {}).get('name', weapon_key)
+                print(f"[LOOT] +{amount} municao de {weapon_name}")
+
+            drop.alive = False
+            collected.append(drop)
+
+        # ── AMMO PACK GENERICO ──────────────────────────────
+        elif data == 'ammo_pack':
+            current = player.get_active_weapon()
+            if current and current.get('name') != "Faquinha":
+                ammo_given = random.randint(10, 25)
+                player.add_ammo(current['name'], ammo_given)
+                print(f"[LOOT] +{ammo_given} municao para {current['name']}")
+            drop.alive = False
+            collected.append(drop)
+
+        # ── KIT MEDICO ─────────────────────────────────────────
+        elif data == 'health':
+            player.heal(20)
+            drop.alive = False
+            collected.append(drop)
+            print("[LOOT] +20 HP")
+
+        # ── XP ────────────────────────────────────────────────
+        elif data == 'xp':
+            player.add_xp(15)
+            drop.alive = False
+            collected.append(drop)
+
     return collected
+
 
 
 def try_equip_weapon(player, loot_drops, drop):

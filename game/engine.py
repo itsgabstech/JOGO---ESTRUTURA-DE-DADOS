@@ -490,28 +490,23 @@ class Game:
                         self.effects.spawn_hit_particles(enemy.x, enemy.y, 4)
                         self.play_sound('hit')
 
-                    if killed:
-                        self.player.kills += 1
-                        self.effects.spawn_death_particles(enemy.x, enemy.y)
-                        self.effects.shake(2, 4)
-                        # Phase 2 trigger at 20 kills
-                        if self.player.kills >= 20 and self.phase == 1:
-                            self.phase = 2
-                            self.phase_message_text = "VOCÊ ENTROU NA FASE 2!"
-                            self.phase_message_subtext = "BOA SORTE!!"
-                            self.phase_message_timer = 0
-                            self.state = STATE_PHASE2
-                            if hasattr(self.spawner, 'phase_multiplier'):
-                                self.spawner.phase_multiplier = 2
-                            self.play_sound('levelup')
+                        if killed:
+                            self.player.kills += 1
+                            self.effects.spawn_death_particles(enemy.x, enemy.y)
+                            self.effects.shake(2, 4)
+                            
+                            from game.loot import roll_loot
+                            loot_items = roll_loot(enemy.x, enemy.y)
+                            if loot_items:
+                                for loot in loot_items:
+                                    self.loot_drops.append(loot)
+                            
+                            if self.player.add_xp(enemy.xp_value):
+                                self._trigger_level_up()
 
-                        # Roll loot
-                        loot = roll_loot(enemy.x, enemy.y)
-                        if loot:
-                            self.loot_drops.append(loot)
-                        # XP
-                        if self.player.add_xp(enemy.xp_value):
-                            self._trigger_level_up()
+                        if b in self.bullets:
+                            self.bullets.remove(b)
+                        break
 
 
         # Update enemies

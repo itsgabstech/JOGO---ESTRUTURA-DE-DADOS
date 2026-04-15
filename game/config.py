@@ -31,9 +31,10 @@ T_ROAD = 8
 # ─── Player ───
 PLAYER_SPEED = 1.8
 PLAYER_MAX_HP = 100
-PLAYER_START_AMMO = 60
-PLAYER_FIRE_RATE = 15  # frames between shots
-PLAYER_DAMAGE = 10
+PLAYER_PICKUP_RANGE = 25
+PLAYER_INV_SIZE = 16
+
+# ─── Combate ───
 BULLET_SPEED = 4.5
 BULLET_RANGE = 150
 
@@ -58,14 +59,9 @@ ENEMY_STATS = {
 LOOT_TYPES = ['health', 'ammo_pack', 'ammo_specific', 'weapon', 'xp']
 LOOT_DROP_CHANCE = 0.45
 LOOT_WEIGHTS = {
-    'xp': 25,
-    'ammo': 35,
-    'health': 20,
-    'speed': 5,
-    'damage': 5,
-    'armor': 4,
-    'magnet': 3,
-    'weapon': 3,
+    'xp': 50,
+    'health': 30,
+    'ammo_pack': 20,
 }
 LOOT_NAMES = {
     'ammo_pack': 'Pacote de Munição',
@@ -73,7 +69,7 @@ LOOT_NAMES = {
     'xp': 'Experiência',
 }
 LOOT_DESCRIPTIONS = {
-    'ammo': '+20 munição',
+    'ammo_pack': 'Recarrega a arma atual',
     'health': 'Restaura 25 HP',
     'xp': '+XP bônus',
 }
