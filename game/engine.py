@@ -15,7 +15,8 @@ from game.effects import EffectsManager
 from game.renderer import Renderer
 from game.weapons_data import AMMO_TYPES
 from ui.hud import UI
-
+from game.npc import NPC
+from ui.dialogue import DialogueBox
 
 # Game states
 STATE_MENU = 0
@@ -74,6 +75,11 @@ class Game:
 
         # Combat mode setting
         self.combat_mode = COMBAT_AUTO
+
+        # NPCs e Diálogo
+        self.npcs = []
+        self.dialogue_box = DialogueBox(self.screen_w, self.screen_h)
+        self.nearby_npc = None
 
         # Phase progression
         self.phase = 1
@@ -198,6 +204,50 @@ class Game:
         self.phase_message_text = ""
         self.phase_message_subtext = ""
         self.state = STATE_PLAYING
+        
+        # Criar NPCs em locais estratégicos do mapa
+        self.npcs = [
+            # Professor Cesar - centro do campus
+            NPC(MAP_PX_W // 2 - 50, MAP_PX_H // 2 - 30, "Professor Cesar", [
+                "Olá, aluno! Bem-vindo ao campus da UNIMA Afya!",
+                "Infelizmente, um vírus misterioso transformou",
+                "todos os seus colegas em zumbis sedentos por sangue!",
+                "Sua missão é sobreviver e limpar o campus!",
+                "Colete armas e munição dos zumbis que você matar.",
+                "Use [1] e [2] para trocar de arma.",
+                "Pressione [R] para recarregar.",
+                "Boa sorte, sobrevivente!"
+            ], (100, 150, 200)),
+            
+            # Zezinho - próximo à cantina (lado direito)
+            NPC(MAP_PX_W - 250, MAP_PX_H // 2 - 100, "Zezinho", [
+                "E ai, brother! Que loucura esse apocalipse!",
+                "Tome cuidado com os zumbis velozes!",
+                "Eles são muito rápidos e perigosos!",
+                "Se precisar de munição, mate mais zumbis.",
+                "Eles dropam pacotes de munição também!",
+                "Qualquer coisa, to por aqui. Falou!"
+            ], (150, 100, 100)),
+            
+            # Enfermeira - próximo ao centro de saúde (lado inferior esquerdo)
+            NPC(180, MAP_PX_H - 200, "Enfermeira", [
+                "Você está ferido, sobrevivente?",
+                "Aqui na enfermaria temos kits médicos.",
+                "Os zumbis também dropam itens de cura.",
+                "Continue lutando, vamos vencer essa praga!",
+                "Se precisar, volte aqui para descansar."
+            ], (200, 100, 150)),
+            
+            # Bibliotecário - na biblioteca (canto superior esquerdo)
+            NPC(200, 150, "Bibliotecário", [
+                "Silêncio! Isso é uma biblioteca!",
+                "Ah... perdoe-me. O estresse do apocalipse...",
+                "Se precisar de conhecimento sobre as armas,",
+                "cada uma tem seu próprio tipo de munição.",
+                "Espingarda usa shells, M4 usa rifle ammo...",
+                "Bazuca usa foguetes! Cuidado com a explosão!"
+            ], (80, 80, 120)),
+        ]
 
     def run(self):
         """Main game loop."""
@@ -262,7 +312,10 @@ class Game:
 
         elif self.state == STATE_PLAYING:
             if key == pygame.K_ESCAPE:
-                self.state = STATE_PAUSED
+                if self.dialogue_box.active:
+                    self.dialogue_box.close()
+                else:
+                    self.state = STATE_PAUSED
             elif key == pygame.K_1:
                 self.player.active_slot = 1
             elif key == pygame.K_2:
@@ -284,6 +337,16 @@ class Game:
                 self.state = STATE_INVENTORY
             elif key == pygame.K_TAB:
                 self.player.combat_mode = COMBAT_MANUAL if self.player.combat_mode == COMBAT_AUTO else COMBAT_AUTO
+            elif key == pygame.K_e:
+                # Interagir com NPC ou usar item
+                if self.nearby_npc and not self.dialogue_box.active:
+                    self.dialogue_box.start_dialogue(self.nearby_npc)
+                elif self.dialogue_box.active:
+                    self.dialogue_box.next_line()
+                else:
+                    # Usar item do inventário
+                    if self.player.use_item(self.player.selected_slot):
+                        self.play_sound('pickup')
 
         elif self.state == STATE_PAUSED:
             if key == pygame.K_ESCAPE:
@@ -387,7 +450,7 @@ class Game:
                 self.effects.spawn_muzzle_flash(new_bullets['x'], new_bullets['y'],
                                                 new_bullets['dx'], new_bullets['dy'])
 
-       # Update bullets e efeitos de área
+        # Update bullets e efeitos de área
         for b in self.bullets[:]:
             b['x'] += b['dx']
             b['y'] += b['dy']
@@ -515,7 +578,6 @@ class Game:
                             self.bullets.remove(b)
                         break
 
-
         # Update enemies
         self._try_spawn_professor_vital()
         self.spawner.update(self.player.x, self.player.y,
@@ -579,6 +641,17 @@ class Game:
                     min_dist = dist
                     self.nearby_weapon = drop
 
+        # Atualizar diálogo
+        if self.dialogue_box.active:
+            self.dialogue_box.update()
+        
+        # Verificar NPC próximo
+        self.nearby_npc = None
+        for npc in self.npcs:
+            if npc.can_interact(self.player):
+                self.nearby_npc = npc
+                break
+
         # Update effects
         self.effects.update()
 
@@ -640,12 +713,16 @@ class Game:
             self.renderer.draw_world(
                 self.screen, self.tilemap, self.player,
                 self.enemies, self.bullets + self.enemy_projectiles, self.loot_drops,
-                self.effects, shake)
+                self.effects, shake, self.npcs)
+          
+            # Draw dialogue box
+            if self.dialogue_box.active:
+                self.dialogue_box.draw(self.screen)
 
             # Calcular enemy_count e draw HUD
             enemy_count = len([e for e in self.enemies if e.alive])
             self.ui.draw_hud(self.screen, self.player,
-                             self.game_time, enemy_count, self.phase)
+                self.game_time, enemy_count, self.phase, self)
 
             # Phase 2 message (pause state)
             if self.state == STATE_PHASE2 and self.phase_message_text:

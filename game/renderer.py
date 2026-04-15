@@ -235,7 +235,7 @@ class Renderer:
         self.cam_y = max(0, min(MAP_PX_H - self.view_h, self.cam_y))
 
     def draw_world(self, screen, tilemap, player, enemies, bullets,
-                   loot_drops, effects, shake_offset=(0, 0)):
+                   loot_drops, effects, shake_offset=(0, 0), npcs=None):
         """Draw entire game world to screen."""
         gs = self.game_surface
         gs.fill((20, 25, 15))
@@ -341,6 +341,11 @@ class Renderer:
                     pygame.draw.rect(gs, (60, 15, 15), (bx, by, bar_w, bar_h))
                     fill = int(bar_w * enemy.hp / enemy.max_hp)
                     pygame.draw.rect(gs, (220, 40, 40), (bx, by, fill, bar_h))
+       
+        # ── Draw NPCs ──
+        if npcs:    
+            for npc in npcs:
+                self.draw_npc(gs, npc, cx, cy)
 
         # ── Draw player ──
         if player.alive:
@@ -408,3 +413,35 @@ class Renderer:
                     if dx*dx + dy*dy <= r*r and random.random() > 0.3:
                         self._px(s, 10 + dx, 10 + dy, color)
         return s
+
+    def draw_npc(self, surface, npc, cam_x, cam_y):
+        """Desenha um NPC na tela"""
+        sx = npc.x - cam_x - 8
+        sy = npc.y - cam_y - 12
+        
+        # Só desenha se estiver visível na tela
+        if sx < -30 or sx > self.view_w + 30 or sy < -30 or sy > self.view_h + 30:
+            return
+        
+        # Sombra
+        pygame.draw.ellipse(surface, (0, 0, 0, 100), (sx + 2, sy + 14, 12, 6))
+        
+        # Corpo
+        pygame.draw.rect(surface, npc.sprite_color, (sx, sy, 16, 16))
+        pygame.draw.rect(surface, (50, 50, 50), (sx, sy, 16, 16), 2)
+        
+        # Olhos
+        pygame.draw.circle(surface, (255, 255, 255), (sx + 4, sy + 5), 2)
+        pygame.draw.circle(surface, (255, 255, 255), (sx + 12, sy + 5), 2)
+        pygame.draw.circle(surface, (0, 0, 0), (sx + 4, sy + 5), 1)
+        pygame.draw.circle(surface, (0, 0, 0), (sx + 12, sy + 5), 1)
+        
+        # Nome acima
+        font = pygame.font.SysFont('consolas', 8)
+        name_text = font.render(npc.name, True, (255, 255, 100))
+        surface.blit(name_text, (sx + 2, sy - 10))
+        
+        # Indicador de interação (balão)
+        font_sm = pygame.font.SysFont('consolas', 7)
+        talk_text = font_sm.render("[E]", True, (100, 255, 100))
+        surface.blit(talk_text, (sx + 4, sy - 20))

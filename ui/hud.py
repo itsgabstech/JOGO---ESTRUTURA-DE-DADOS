@@ -139,7 +139,7 @@ class UI:
         slot2_color = UI_GOLD if player.active_slot == 2 else UI_TEXT
         s2_surface = self.font_sm.render(slot2_text, True, slot2_color)
 
-        # Desenha os dois slots (ajustado Y para não sobrepor a fase)
+        # Desenha os dois slots
         surface.blit(s1_surface, (16, 100))
         surface.blit(s2_surface, (16, 118))
 
@@ -147,34 +147,7 @@ class UI:
         active_y = 100 if player.active_slot == 1 else 118
         pygame.draw.rect(surface, UI_ACCENT, (12, active_y - 2, 220, 18), 1)
 
-        # ── Top-right: Timer, Kills ──
-        panel2 = generate_ui_panel(160, 56, 190)
-        surface.blit(panel2, (self.sw - 168, 8))
-
-        minutes = game_time // (60 * 60)
-        seconds = (game_time // 60) % 60
-        time_text = self.font.render(
-            f"Tempo: {minutes:02d}:{seconds:02d}", True, UI_TEXT)
-        surface.blit(time_text, (self.sw - 158, 16))
-
-        kills_text = self.font.render(
-            f"Abates: {player.kills}", True, UI_RED)
-        surface.blit(kills_text, (self.sw - 158, 36))
-
-        # ── Bottom center: combat mode indicator ──
-        mode = "AUTO" if player.combat_mode == COMBAT_AUTO else "MANUAL"
-        mode_text = self.font_sm.render(f"[TAB] Modo: {mode}", True, UI_BLUE)
-        mx = self.sw // 2 - mode_text.get_width() // 2
-        surface.blit(mode_text, (mx, self.sh - 24))
-
-        # ── Bottom-left: enemy count ──
-        ec_text = self.font_sm.render(f"Zumbis ativos: {enemy_count}", True, UI_RED)
-        surface.blit(ec_text, (16, self.sh - 24))
-
-        # ── Bottom-right: Minimap ──
-        self._draw_minimap(surface, player, 80, 80)
-
-        # Estoque de munição de TODAS as armas (canto inferior centro-esquerda)
+        # Estoque de munição de TODAS as armas
         ammo_panel_x = 16
         ammo_panel_y = self.sh - 90
         all_ammo_lines = []
@@ -206,15 +179,21 @@ class UI:
         if game_ref and hasattr(game_ref, 'nearby_weapon') and game_ref.nearby_weapon:
             weapon_data = game_ref.nearby_weapon.loot_data.get('data', {})
             weapon_name = weapon_data.get('name', 'Arma')
-            
             msg = f"[Q] Pegar {weapon_name}"
             msg_surface = self.font.render(msg, True, UI_GOLD)
             msg_x = self.sw // 2 - msg_surface.get_width() // 2
             msg_y = self.sh - 60
             surface.blit(msg_surface, (msg_x, msg_y))
 
-
-
+        # Dica de interação com NPC
+        if game_ref and hasattr(game_ref, 'nearby_npc') and game_ref.nearby_npc:
+            dialogue_active = hasattr(game_ref, 'dialogue_box') and game_ref.dialogue_box.active
+            if not dialogue_active:
+                msg = f"[E] Falar com {game_ref.nearby_npc.name}"
+                msg_surface = self.font.render(msg, True, UI_ACCENT)
+                msg_x = self.sw // 2 - msg_surface.get_width() // 2
+                msg_y = self.sh - 90
+                surface.blit(msg_surface, (msg_x, msg_y))
 
     def _draw_minimap(self, surface, player, mw, mh):
         """Draw a small minimap in the bottom-right corner."""
@@ -299,7 +278,6 @@ class UI:
                     surface.blit(ct, (sx + slot_size - ct.get_width() - 2,
                                       sy + slot_size - 12))
 
-
         # Selected item info
         sel_item = player.inventory[player.selected_slot]
         if sel_item:
@@ -375,7 +353,6 @@ class UI:
                 tx = self.sw // 2 - txt.get_width() // 2
                 ty = 280 + i * 45
                 if i == selected:
-                    # Selection indicator
                     ind = self.font_menu.render("►", True, UI_RED)
                     surface.blit(ind, (tx - 30, ty))
                 surface.blit(txt, (tx, ty))
@@ -419,8 +396,7 @@ class UI:
             "1 / 2 / Q      —  Trocar arma",
             "R              —  Recarregar arma atual",
             "I              —  Abrir/fechar inventário",
-            "E              —  Usar item selecionado",
-            "Q              —  Descartar item (inventário)",
+            "E              —  Falar com NPC / Usar item",
             "ESC            —  Pausar / Voltar",
             "",
             "Sobreviva o máximo que puder!",
