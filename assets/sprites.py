@@ -72,19 +72,29 @@ def create_player_sprite(direction=0, frame=0):
     s = pygame.Surface((16, 16), pygame.SRCALPHA)
     bob = 0 if frame % 2 == 0 else -1
 
+    # Cores do personagem
+    C_SKIN = (224, 178, 128)      # Pele
+    C_HAIR = (30, 30, 30)          # Cabelo preto
+    C_SHIRT = (30, 30, 30)         # Blusa preta
+    C_PANTS = (100, 100, 110)      # Bermuda cinza
+    C_SHOES = (40, 40, 40)         # Sapato preto
+    C_EYE = (30, 30, 30)           # Olhos
+    C_GLASSES = (50, 50, 80)       # Óculos (azul escuro)
+    C_GLASSES_FRAME = (80, 80, 100) # Armação do óculos
+
     # Shadow
     for dx in range(6):
         px(s, 5 + dx, 15, (0, 0, 0, 60))
 
-    # Shoes
+    # Shoes (sapato preto)
     rect(s, 5, 13 + bob, 2, 2, C_SHOES)
     rect(s, 9, 13 + bob, 2, 2, C_SHOES)
 
-    # Pants
+    # Pants (bermuda cinza)
     rect(s, 5, 11 + bob, 2, 2, C_PANTS)
     rect(s, 9, 11 + bob, 2, 2, C_PANTS)
 
-    # Shirt (body)
+    # Shirt (blusa preta)
     rect(s, 4, 7 + bob, 8, 4, C_SHIRT)
     # Sleeves
     rect(s, 3, 7 + bob, 1, 3, C_SHIRT)
@@ -95,21 +105,48 @@ def create_player_sprite(direction=0, frame=0):
 
     # Head
     rect(s, 5, 2 + bob, 6, 5, C_SKIN)
-    # Hair
+    # Hair (cabelo preto)
     rect(s, 5, 1 + bob, 6, 2, C_HAIR)
     px(s, 4, 2 + bob, C_HAIR)
     px(s, 11, 2 + bob, C_HAIR)
 
     # Face details based on direction
     if direction == 0:  # down
+        # Olhos
         px(s, 6, 4 + bob, C_EYE)
         px(s, 9, 4 + bob, C_EYE)
+        # Óculos (lentes)
+        rect(s, 5, 3 + bob, 3, 2, C_GLASSES)
+        rect(s, 8, 3 + bob, 3, 2, C_GLASSES)
+        # Armação do óculos
+        px(s, 4, 3 + bob, C_GLASSES_FRAME)
+        px(s, 4, 4 + bob, C_GLASSES_FRAME)
+        px(s, 11, 3 + bob, C_GLASSES_FRAME)
+        px(s, 11, 4 + bob, C_GLASSES_FRAME)
+        # Ponte do óculos
+        px(s, 7, 3 + bob, C_GLASSES_FRAME)
+        px(s, 8, 3 + bob, C_GLASSES_FRAME)
+        
     elif direction == 3:  # up
-        pass  # back of head
+        # Óculos vistos de cima
+        rect(s, 5, 2 + bob, 6, 2, C_GLASSES)
+        pass
+        
     elif direction == 1:  # left
+        # Olho
         px(s, 5, 4 + bob, C_EYE)
+        # Óculos (lente)
+        rect(s, 4, 3 + bob, 3, 2, C_GLASSES)
+        px(s, 3, 3 + bob, C_GLASSES_FRAME)
+        px(s, 3, 4 + bob, C_GLASSES_FRAME)
+        
     elif direction == 2:  # right
+        # Olho
         px(s, 10, 4 + bob, C_EYE)
+        # Óculos (lente)
+        rect(s, 9, 3 + bob, 3, 2, C_GLASSES)
+        px(s, 12, 3 + bob, C_GLASSES_FRAME)
+        px(s, 12, 4 + bob, C_GLASSES_FRAME)
 
     return s
 
