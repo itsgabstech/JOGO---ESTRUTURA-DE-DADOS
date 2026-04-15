@@ -505,6 +505,21 @@ class Game:
                                 self.spawner.phase_multiplier = 2
                             self.play_sound('levelup')
 
+                        # FASE 4
+                    if self.player.kills >= 70 and self.phase == 3:
+                        self.phase = 4
+                        self.phase_message_text = "FASE 4 INICIADA"
+                        self.phase_message_subtext = "ELES NÃO PARAM DE VIR..."
+                        self.phase_message_timer = 0
+                        self.state = STATE_PHASE2
+
+                        if hasattr(self.spawner, 'phase_multiplier'):
+                            self.spawner.phase_multiplier = 4
+
+                        self.spawner.difficulty += 0.5
+
+                        self.play_sound('levelup')
+
                         # Rola uma chance adicional (além do loot normal) para forçar
                         # mais sustentabilidade de munição ao longo da partida.
                         if random.random() < AMMO_DROP_CHANCE_ON_KILL:
