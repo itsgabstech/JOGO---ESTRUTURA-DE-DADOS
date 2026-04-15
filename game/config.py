@@ -31,10 +31,17 @@ T_ROAD = 8
 # ─── Player ───
 PLAYER_SPEED = 1.8
 PLAYER_MAX_HP = 100
+<<<<<<< HEAD
 PLAYER_PICKUP_RANGE = 25
 PLAYER_INV_SIZE = 16
 
 # ─── Combate ───
+=======
+# Quantidade inicial alta para reduzir frustração de falta de munição no começo.
+PLAYER_START_AMMO = 180
+PLAYER_FIRE_RATE = 15  # frames between shots
+PLAYER_DAMAGE = 10
+>>>>>>> 9a7029403964393d1f206c1e06eee875ebfbe1bc
 BULLET_SPEED = 4.5
 BULLET_RANGE = 150
 
@@ -55,13 +62,26 @@ ENEMY_STATS = {
     ZOMBIE_TANK:   {'hp': 60, 'speed': 0.3, 'damage': 15, 'xp': 30, 'name': 'Zumbi Tank'},
 }
 
-# ─── Loot (Sistema Atualizado) ───
-LOOT_TYPES = ['health', 'ammo_pack', 'ammo_specific', 'weapon', 'xp']
-LOOT_DROP_CHANCE = 0.45
+# ─── Loot ───
+LOOT_TYPES = ['ammo', 'health', 'xp', 'speed', 'damage', 'armor', 'magnet', 'weapon']
+# Chance global de algum loot cair quando um inimigo morre.
+LOOT_DROP_CHANCE = 0.70
 LOOT_WEIGHTS = {
+<<<<<<< HEAD
     'xp': 50,
     'health': 30,
     'ammo_pack': 20,
+=======
+    'xp': 25,
+    # Peso maior = maior frequência relativa de munição entre os drops.
+    'ammo': 80,
+    'health': 20,
+    'speed': 5,
+    'damage': 5,
+    'armor': 4,
+    'magnet': 3,
+    'weapon': 3,
+>>>>>>> 9a7029403964393d1f206c1e06eee875ebfbe1bc
 }
 LOOT_NAMES = {
     'ammo_pack': 'Pacote de Munição',
@@ -69,11 +89,19 @@ LOOT_NAMES = {
     'xp': 'Experiência',
 }
 LOOT_DESCRIPTIONS = {
+<<<<<<< HEAD
     'ammo_pack': 'Recarrega a arma atual',
+=======
+    'ammo': '+60 munição',
+>>>>>>> 9a7029403964393d1f206c1e06eee875ebfbe1bc
     'health': 'Restaura 25 HP',
     'xp': '+XP bônus',
 }
-LOOT_STACKABLE = {'ammo_pack', 'health', 'xp'}
+LOOT_STACKABLE = {'ammo', 'health', 'xp'}
+# Munição recebida ao encostar no item de munição no mapa.
+AMMO_PICKUP_AMOUNT = 60
+# Chance extra independente para cada zumbi morto derrubar munição.
+AMMO_DROP_CHANCE_ON_KILL = 0.75
 
 # ─── Progression ───
 XP_BASE = 50
@@ -85,7 +113,8 @@ UPGRADES = [
     {'name': 'Cadência+', 'desc': '+12% cadência de tiro', 'stat': 'fire_rate', 'value': 0.12},
     {'name': 'Vida+', 'desc': '+20 HP máximo', 'stat': 'max_hp', 'value': 20},
     {'name': 'Velocidade+', 'desc': '+8% velocidade', 'stat': 'speed', 'value': 0.08},
-    {'name': 'Coleta+', 'desc': '+25% alcance de coleta', 'stat': 'pickup_range', 'value': 0.25},
+    {'name': 'Coleta+', 'desc': '+25% alcance', 'stat': 'pickup_range', 'value': 0.25},
+    {'name': 'Munição+', 'desc': '+40 munição', 'stat': 'ammo', 'value': 40},
 ]
 
 # ─── Combat modes ───
