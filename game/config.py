@@ -38,6 +38,9 @@ PLAYER_INV_SIZE = 16
 BULLET_SPEED = 4.5
 BULLET_RANGE = 150
 
+# ─── Boss ───
+BOSS_PHASE = 4
+
 # ─── Enemies ───
 ENEMY_SPAWN_RATE = 90  # frames between spawns (start)
 ENEMY_SPAWN_MIN = 20   # minimum frames between spawns
@@ -128,6 +131,7 @@ LOOT_ICONS = {
 
 # ─── Phase Progression ───
 PHASE1_KILLS = 0      # Fase inicial
-PHASE2_KILLS = 30     # Começa fase 2 após 20 kills (era fase 3)
-PHASE3_KILLS = 90     # Começa fase 3 após 60 kills (era fase 4)
-PHASE4_KILLS = 150    # Começa fase 4 após 120 kills (era fase 2)
+PHASE_2_KILLS = 30
+PHASE_3_KILLS = 80
+PHASE_4_KILLS = 150
+BOSS_PHASE = 4

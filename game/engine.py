@@ -28,6 +28,13 @@ STATE_UPGRADE = 5
 STATE_INSTRUCTIONS = 6
 STATE_SETTINGS = 7
 STATE_PHASE2 = 8
+STATE_VICTORY = 9
+
+# Constantes de fase
+PHASE_2_KILLS = 30
+PHASE_3_KILLS = 80
+PHASE_4_KILLS = 150
+BOSS_PHASE = 4
 
 
 class Game:
@@ -207,7 +214,6 @@ class Game:
         
         # Criar NPCs em locais estratégicos do mapa
         self.npcs = [
-            # Professor Cesar - centro do campus
             NPC(MAP_PX_W // 2 - 50, MAP_PX_H // 2 - 30, "Professor Cesar", [
                 "Olá, aluno! Bem-vindo ao campus da UNIMA Afya!",
                 "Infelizmente, um vírus misterioso transformou",
@@ -219,7 +225,6 @@ class Game:
                 "Boa sorte, sobrevivente!"
             ], (100, 150, 200)),
             
-            # Zezinho - próximo à cantina (lado direito)
             NPC(MAP_PX_W - 250, MAP_PX_H // 2 - 100, "Zezinho", [
                 "E ai, brother! Que loucura esse apocalipse!",
                 "Tome cuidado com os zumbis velozes!",
@@ -229,7 +234,6 @@ class Game:
                 "Qualquer coisa, to por aqui. Falou!"
             ], (150, 100, 100)),
             
-            # Enfermeira - próximo ao centro de saúde (lado inferior esquerdo)
             NPC(180, MAP_PX_H - 200, "Enfermeira", [
                 "Você está ferido, sobrevivente?",
                 "Aqui na enfermaria temos kits médicos.",
@@ -238,7 +242,6 @@ class Game:
                 "Se precisar, volte aqui para descansar."
             ], (200, 100, 150)),
             
-            # Bibliotecário - na biblioteca (canto superior esquerdo)
             NPC(200, 150, "Bibliotecário", [
                 "Silêncio! Isso é uma biblioteca!",
                 "Ah... perdoe-me. O estresse do apocalipse...",
@@ -299,7 +302,6 @@ class Game:
                 self.settings_selection = (self.settings_selection + 1) % 3
             elif key == pygame.K_RETURN:
                 if self.settings_selection == 0:
-                    # Toggle combat mode
                     self.combat_mode = COMBAT_MANUAL if self.combat_mode == COMBAT_AUTO else COMBAT_AUTO
                 elif self.settings_selection == 2:
                     self.state = STATE_MENU
@@ -322,13 +324,11 @@ class Game:
                 if self.player.slot_2:
                     self.player.active_slot = 2
             elif key == pygame.K_q:
-                # Verifica se tem arma no chão para pegar
                 if self.nearby_weapon:
                     if try_equip_weapon(self.player, self.loot_drops, self.nearby_weapon):
                         self.play_sound('pickup')
                         self.nearby_weapon = None
                 else:
-                    # Se não tem arma no chão, troca de slot
                     self.player.switch_slot()
             elif key == pygame.K_r:
                 if self.player.reload():
@@ -338,13 +338,11 @@ class Game:
             elif key == pygame.K_TAB:
                 self.player.combat_mode = COMBAT_MANUAL if self.player.combat_mode == COMBAT_AUTO else COMBAT_AUTO
             elif key == pygame.K_e:
-                # Interagir com NPC ou usar item
                 if self.nearby_npc and not self.dialogue_box.active:
                     self.dialogue_box.start_dialogue(self.nearby_npc)
                 elif self.dialogue_box.active:
                     self.dialogue_box.next_line()
                 else:
-                    # Usar item do inventário
                     if self.player.use_item(self.player.selected_slot):
                         self.play_sound('pickup')
 
@@ -366,13 +364,11 @@ class Game:
             elif key == pygame.K_LEFT:
                 self.player.selected_slot = max(0, self.player.selected_slot - 1)
             elif key == pygame.K_RIGHT:
-                self.player.selected_slot = min(PLAYER_INV_SIZE - 1,
-                                                 self.player.selected_slot + 1)
+                self.player.selected_slot = min(PLAYER_INV_SIZE - 1, self.player.selected_slot + 1)
             elif key == pygame.K_UP:
                 self.player.selected_slot = max(0, self.player.selected_slot - 4)
             elif key == pygame.K_DOWN:
-                self.player.selected_slot = min(PLAYER_INV_SIZE - 1,
-                                                 self.player.selected_slot + 4)
+                self.player.selected_slot = min(PLAYER_INV_SIZE - 1, self.player.selected_slot + 4)
             elif key == pygame.K_e:
                 if self.player.use_item(self.player.selected_slot):
                     self.play_sound('pickup')
@@ -381,18 +377,21 @@ class Game:
 
         elif self.state == STATE_UPGRADE:
             if key == pygame.K_UP:
-                self.upgrade_selection = (
-                    (self.upgrade_selection - 1) % len(self.upgrade_options))
+                self.upgrade_selection = (self.upgrade_selection - 1) % len(self.upgrade_options)
             elif key == pygame.K_DOWN:
-                self.upgrade_selection = (
-                    (self.upgrade_selection + 1) % len(self.upgrade_options))
+                self.upgrade_selection = (self.upgrade_selection + 1) % len(self.upgrade_options)
             elif key == pygame.K_RETURN:
                 if self.upgrade_options:
-                    self.player.apply_upgrade(
-                        self.upgrade_options[self.upgrade_selection])
+                    self.player.apply_upgrade(self.upgrade_options[self.upgrade_selection])
                     self.state = STATE_PLAYING
 
         elif self.state == STATE_GAME_OVER:
+            if key == pygame.K_RETURN:
+                self.new_game()
+            elif key == pygame.K_ESCAPE:
+                self.state = STATE_MENU
+
+        elif self.state == STATE_VICTORY:
             if key == pygame.K_RETURN:
                 self.new_game()
             elif key == pygame.K_ESCAPE:
@@ -456,13 +455,10 @@ class Game:
             b['y'] += b['dy']
             b['life'] -= 1
             
-            # Verifica se é uma granada ou míssil que explodiu no fim da vida
             if b['life'] <= 0:
-                # Efeito de explosão para granadas, mísseis e bazuca
                 if b.get('type') in ['explosive', 'grenade', 'grenade_launcher']:
                     print(f"[EXPLOSION] {b.get('type')} explodiu em ({b['x']}, {b['y']})")
                     
-                    # Dano em área
                     radius = b.get('radius', 35)
                     for enemy in self.enemies:
                         if not enemy.alive:
@@ -475,6 +471,17 @@ class Game:
                             self.effects.add_damage_number(enemy.x, enemy.y, damage)
                             
                             if killed:
+                                # Verifica se o inimigo morto é o chefão
+                                if getattr(enemy, 'is_boss', False):
+                                    print("[VICTORY] Professor Vital foi derrotado!")
+                                    # Efeito de explosão especial
+                                    for _ in range(50):
+                                        self.effects.spawn_explosion(enemy.x, enemy.y)
+                                    self.play_sound('levelup')
+                                    self.play_sound('death')
+                                    self.state = STATE_VICTORY
+                                    return
+                                
                                 self.player.kills += 1
                                 self.effects.spawn_death_particles(enemy.x, enemy.y)
                                 self.effects.shake(3, 8)
@@ -487,15 +494,12 @@ class Game:
                                 if self.player.add_xp(enemy.xp_value):
                                     self._trigger_level_up()
                     
-                    # Efeito visual de explosão
                     self.effects.spawn_explosion(b['x'], b['y'])
                     self.effects.shake(4, 12)
                     self.play_sound('hit')
-                    
                     self.bullets.remove(b)
                     continue
                 
-                # Área de fogo para coquetel molotov
                 elif b.get('type') == 'fire':
                     print(f"[FIRE] Fogo criado em ({b['x']}, {b['y']}) duração: {b.get('duration', 60)}")
                     self.effects.spawn_fire_area(b['x'], b['y'], b.get('duration', 60), b['damage'])
@@ -506,7 +510,6 @@ class Game:
                     self.bullets.remove(b)
                     continue
             
-            # Para minas: quando armar, verifica colisão com inimigos
             if b.get('type') == 'mine':
                 if not b.get('armed', False):
                     b['arm_timer'] = b.get('arm_timer', 30) - 1
@@ -536,14 +539,12 @@ class Game:
                                 if self.player.add_xp(enemy.xp_value):
                                     self._trigger_level_up()
                             
-                            # Efeito de explosão da mina
                             self.effects.spawn_explosion(b['x'], b['y'])
                             self.effects.shake(3, 10)
                             self.play_sound('hit')
                             self.bullets.remove(b)
                             break
             
-            # Colisão normal para balas comuns (M4A4, Espingarda, Faquinha)
             else:
                 for enemy in self.enemies:
                     if not enemy.alive:
@@ -561,6 +562,16 @@ class Game:
                         self.play_sound('hit')
 
                         if killed:
+                            # Verifica se o inimigo morto é o chefão
+                            if getattr(enemy, 'is_boss', False):
+                                print("[VICTORY] Professor Vital foi derrotado!")
+                                for _ in range(50):
+                                    self.effects.spawn_explosion(enemy.x, enemy.y)
+                                self.play_sound('levelup')
+                                self.play_sound('death')
+                                self.state = STATE_VICTORY
+                                return
+                            
                             self.player.kills += 1
                             self.effects.spawn_death_particles(enemy.x, enemy.y)
                             self.effects.shake(2, 4)
@@ -580,12 +591,10 @@ class Game:
 
         # Update enemies
         self._try_spawn_professor_vital()
-        self.spawner.update(self.player.x, self.player.y,
-                            self.enemies, self.tilemap, self.phase)
+        self.spawner.update(self.player.x, self.player.y, self.enemies, self.tilemap, self.phase)
 
         for enemy in self.enemies:
-            projectile = enemy.update(self.player.x, self.player.y,
-                                      self.tilemap, self.enemies)
+            projectile = enemy.update(self.player.x, self.player.y, self.tilemap, self.enemies)
             if projectile:
                 self.enemy_projectiles.append(projectile)
             if enemy.alive and enemy.collides_with_player(self.player):
@@ -613,22 +622,21 @@ class Game:
                 self.effects.shake(4, 7)
 
         # Clean dead enemies (after fade)
-        self.enemies = [e for e in self.enemies
-                        if e.alive or e.death_timer < 30]
+        self.enemies = [e for e in self.enemies if e.alive or e.death_timer < 30]
 
         # Update loot
         for drop in self.loot_drops:
             drop.update()
         self.loot_drops = [d for d in self.loot_drops if d.alive]
 
-        # Pickup (automático para munição, vida, XP)
+        # Pickup
         from game.loot import try_pickup
         collected = try_pickup(self.player, self.loot_drops, self)
         for item in collected:
             self.effects.spawn_pickup_particles(item.x, item.y)
             self.play_sound('pickup')
 
-        # Encontra a arma mais próxima para interação manual
+        # Encontra a arma mais próxima
         self.nearby_weapon = None   
         min_dist = 50
         for drop in self.loot_drops:
@@ -671,25 +679,43 @@ class Game:
     def _trigger_level_up(self):
         """Show upgrade selection."""
         self.play_sound('levelup')
-        # Pick 3 random upgrades
         options = random.sample(UPGRADES, min(3, len(UPGRADES)))
         self.upgrade_options = options
         self.upgrade_selection = 0
         self.state = STATE_UPGRADE
 
     def _update_phase_progression(self):
-        """Advance to phase 3 once the player reaches the kill threshold."""
-        if self.phase >= 3 or not self.player:
+        """Advance phases based on kill count."""
+        if not self.player:
             return
-
-        if self.player.kills >= PHASE3_KILLS:
-            self.phase = 3
-            self.spawner.difficulty = max(self.spawner.difficulty, 2.2)
+        
+        if self.phase == 1 and self.player.kills >= PHASE_2_KILLS:
+            self.phase = 2
+            self.spawner.difficulty = max(self.spawner.difficulty, 1.5)
             self.spawner.spawn_rate = max(ENEMY_SPAWN_MIN,
                                           int(ENEMY_SPAWN_RATE / self.spawner.difficulty))
-            self.phase_message_timer = FPS * 4
+            self.phase_message_timer = FPS * 3
+            self.phase_message_text = "FASE 2"
+            self.phase_message_subtext = "Inimigos mais fortes!"
+            print(f"[FASE] Avançou para FASE 2! ({self.player.kills} kills)")
+            
+        elif self.phase == 2 and self.player.kills >= PHASE_3_KILLS:
+            self.phase = 3
+            self.spawner.difficulty = max(self.spawner.difficulty, 2.0)
+            self.spawner.spawn_rate = max(ENEMY_SPAWN_MIN,
+                                          int(ENEMY_SPAWN_RATE / self.spawner.difficulty))
+            self.phase_message_timer = FPS * 3
             self.phase_message_text = "FASE 3"
-            self.phase_message_subtext = "Agora os inimigos são mais rápidos"
+            self.phase_message_subtext = "A horda está chegando!"
+            print(f"[FASE] Avançou para FASE 3! ({self.player.kills} kills)")
+        
+        elif self.phase == 3 and self.player.kills >= PHASE_4_KILLS:
+            self.phase = 4
+            self.phase_message_timer = FPS * 4
+            self.phase_message_text = "FASE 4 - CHEFÃO!"
+            self.phase_message_subtext = "PROFESSOR VITAL APARECEU!"
+            print(f"[FASE] Avançou para FASE 4! ({self.player.kills} kills)")
+            self._try_spawn_professor_vital(force=True)
 
     def _draw(self):
         """Render current frame."""
@@ -699,32 +725,27 @@ class Game:
             self.ui.draw_menu(self.screen, self.menu_selection)
 
         elif self.state == STATE_SETTINGS:
-            self.ui.draw_menu(self.screen, self.settings_selection,
-                              settings_open=True)
+            self.ui.draw_menu(self.screen, self.settings_selection, settings_open=True)
 
         elif self.state == STATE_INSTRUCTIONS:
             self.ui.draw_instructions(self.screen)
 
-        elif self.state in (STATE_PLAYING, STATE_PHASE2,
-                            STATE_INVENTORY, STATE_PAUSED,
-                            STATE_UPGRADE, STATE_GAME_OVER):
-            # Draw world
+        elif self.state == STATE_VICTORY:
+            self.ui.draw_victory(self.screen, self.player, self.game_time)
+
+        elif self.state in (STATE_PLAYING, STATE_PHASE2, STATE_INVENTORY, STATE_PAUSED, STATE_UPGRADE, STATE_GAME_OVER):
             shake = self.effects.get_shake_offset()
             self.renderer.draw_world(
                 self.screen, self.tilemap, self.player,
                 self.enemies, self.bullets + self.enemy_projectiles, self.loot_drops,
                 self.effects, shake, self.npcs)
           
-            # Draw dialogue box
             if self.dialogue_box.active:
                 self.dialogue_box.draw(self.screen)
 
-            # Calcular enemy_count e draw HUD
             enemy_count = len([e for e in self.enemies if e.alive])
-            self.ui.draw_hud(self.screen, self.player,
-                self.game_time, enemy_count, self.phase, self)
+            self.ui.draw_hud(self.screen, self.player, self.game_time, enemy_count, self.phase, self)
 
-            # Phase 2 message (pause state)
             if self.state == STATE_PHASE2 and self.phase_message_text:
                 title_font = pygame.font.SysFont('consolas', 36, bold=True)
                 sub_font = pygame.font.SysFont('consolas', 24, bold=True)
@@ -737,7 +758,6 @@ class Game:
                 box_x = self.screen_w // 2 - box_w // 2
                 box_y = self.screen_h // 2 - box_h // 2
 
-                # Draw background panel with border highlight
                 panel = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
                 panel.fill((10, 10, 40, 220))
                 pygame.draw.rect(panel, UI_ACCENT, (0, 0, box_w, box_h), 3)
@@ -747,7 +767,6 @@ class Game:
                 self.screen.blit(subtitle, (self.screen_w // 2 - subtitle.get_width() // 2, box_y + 12 + title.get_height() + 8))
                 self.screen.blit(prompt, (self.screen_w // 2 - prompt.get_width() // 2, box_y + 12 + title.get_height() + subtitle.get_height() + 20))
 
-            # Additional temporary phase message (legacy timer)
             elif self.phase_message_timer > 0 and self.phase_message_text:
                 if self.phase == 3:
                     title = self.ui.font_lg.render(self.phase_message_text, True, (255, 255, 255))
@@ -758,53 +777,53 @@ class Game:
                     bar_w = max(title.get_width(), subtitle.get_width()) + 40
                     bar_x = self.screen_w // 2 - bar_w // 2
 
-                    # Red base below the title
-                    pygame.draw.rect(self.screen, (180, 30, 30),
-                                     (bar_x, bar_y, bar_w, 28), border_radius=6)
+                    pygame.draw.rect(self.screen, (180, 30, 30), (bar_x, bar_y, bar_w, 28), border_radius=6)
                     self.screen.blit(title, (self.screen_w // 2 - title.get_width() // 2, title_y))
-                    self.screen.blit(subtitle, (self.screen_w // 2 - subtitle.get_width() // 2,
-                                                bar_y + 36))
+                    self.screen.blit(subtitle, (self.screen_w // 2 - subtitle.get_width() // 2, bar_y + 36))
                 else:
                     msg = self.ui.font_lg.render(self.phase_message_text, True, UI_GOLD)
                     mx = self.screen_w // 2 - msg.get_width() // 2
                     self.screen.blit(msg, (mx, 70))
 
-            # Overlay states
             if self.state == STATE_INVENTORY:
                 self.ui.draw_inventory(self.screen, self.player)
             elif self.state == STATE_PAUSED:
                 self.ui.draw_pause(self.screen)
             elif self.state == STATE_UPGRADE:
-                self.ui.draw_upgrade_choice(
-                    self.screen, self.upgrade_options,
-                    self.upgrade_selection)
+                self.ui.draw_upgrade_choice(self.screen, self.upgrade_options, self.upgrade_selection)
             elif self.state == STATE_GAME_OVER:
-                self.ui.draw_game_over(self.screen, self.player,
-                                       self.game_time)
+                self.ui.draw_game_over(self.screen, self.player, self.game_time)
 
         pygame.display.flip()
 
     def _try_spawn_professor_vital(self, force=False):
-        """Spawn final boss by score or by reaching final map area."""
+        """Spawn final boss only in phase 4 or when forced."""
         if self.boss_spawned or not self.player or not self.player.alive:
-            return
-
-        score = self.player.kills * 10
-        reached_final_area = (
-            self.player.x > MAP_PX_W * 0.82 and
-            self.player.y > MAP_PX_H * 0.72
-        )
-        if not force and score < self.boss_score_threshold and not reached_final_area:
-            return
-
+            return False
+        
+        if not force and self.phase < BOSS_PHASE:
+            return False
+        
+        for enemy in self.enemies:
+            if getattr(enemy, 'is_boss', False) and enemy.alive:
+                return False
+        
         spawn_x = min(MAP_PX_W - TILE_SIZE * 3, self.player.x + 140)
         spawn_y = min(MAP_PX_H - TILE_SIZE * 3, self.player.y + 100)
         from game.campus_map import get_walkable
         if not get_walkable(self.tilemap, spawn_x, spawn_y):
             spawn_x = self.player.x + 60
             spawn_y = self.player.y + 60
-
-        self.enemies.append(ProfessorVital(spawn_x, spawn_y))
+        
+        boss = ProfessorVital(spawn_x, spawn_y)
+        
+        if self.phase >= 4:
+            boss.max_hp = int(boss.max_hp * 2.5)
+            boss.hp = boss.max_hp
+            boss.damage = int(boss.damage * 2.0)
+            print(f"[BOSS] Professor Vital spawnado com {boss.max_hp} HP e {boss.damage} de dano!")
+        
+        self.enemies.append(boss)
         self.boss_spawned = True
-        print("PROFESSOR VITAL: EU SOU O BOSS!")
-        print("A prova final começou! Aqui é sem consulta!")
+        print(f"[BOSS] Professor Vital apareceu na FASE {self.phase}!")
+        return True

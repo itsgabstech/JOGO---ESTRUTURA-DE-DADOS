@@ -173,74 +173,72 @@ class EnemySpawner:
 
 
 class ProfessorVital(Enemy):
-    """Final boss: huge health, relentless chase and projectile pressure."""
-
     def __init__(self, x, y):
+        # Status MUITO mais fortes
         super().__init__(x, y, ZOMBIE_TANK)
-        self.name = "Professor Vital"
-        self.max_hp = 520
-        self.hp = self.max_hp
-        self.speed = 0.75
-        self.damage = 22
-        self.xp_value = 180
-        self.w = 96
-        self.h = 96
         self.is_boss = True
-        self.projectile_cooldown = FPS * 3
-        self.speech_text = "EU SOU O BOSS! Aqui e sem consulta!"
-        self.speech_timer = FPS * 8
-
+        self.name = "Professor Vital"
+        self.max_hp = 800  # Aumentado de 200 para 800
+        self.hp = self.max_hp
+        self.damage = 35   # Aumentado de 15 para 35
+        self.speed = 0.6   # Mais lento mas mais forte
+        self.w = 28
+        self.h = 32
+        self.xp_value = 500  # Muito XP ao derrotar
+        self.speech_timer = 0
+        self.speech_text = ""
+        
+        # Ataques especiais
+        self.shoot_timer = 0
+        self.shoot_delay = 90  # Atira a cada 90 frames (~1.5 segundos)
+        
     def update(self, player_x, player_y, tilemap, all_enemies):
+        # Comportamento normal de inimigo
+        super().update(player_x, player_y, tilemap, all_enemies)
+        
         if not self.alive:
-            self.death_timer += 1
-            return None
-
-        dx = player_x - self.x
-        dy = player_y - self.y
-        dist = math.sqrt(dx * dx + dy * dy)
-
-        if dist > 1:
-            dx /= dist
-            dy /= dist
-            move_x = dx * self.speed
-            move_y = dy * self.speed
-
-            from game.campus_map import get_walkable
-            new_x = self.x + move_x
-            new_y = self.y + move_y
-            if get_walkable(tilemap, new_x, self.y):
-                self.x = new_x
-            if get_walkable(tilemap, self.x, new_y):
-                self.y = new_y
-
-        self.anim_timer += 1
-        if self.anim_timer >= 10:
-            self.anim_timer = 0
-            self.anim_frame = (self.anim_frame + 1) % 4
-
-        if self.hit_flash > 0:
-            self.hit_flash -= 1
-        if self.attack_cooldown > 0:
-            self.attack_cooldown -= 1
+            return
+        
+        # Ataque à distância (tiros)
+        self.shoot_timer += 1
+        if self.shoot_timer >= self.shoot_delay:
+            self.shoot_timer = 0
+            # Só atira se estiver relativamente perto
+            dx = player_x - self.x
+            dy = player_y - self.y
+            dist = math.sqrt(dx*dx + dy*dy)
+            if dist < 250:
+                # Normaliza direção
+                if dist > 0.1:
+                    dx /= dist
+                    dy /= dist
+                # Dispara um projétil
+                return {
+                    'x': self.x, 'y': self.y,
+                    'dx': dx * 3.5,
+                    'dy': dy * 3.5,
+                    'damage': self.damage // 2,
+                    'life': 90,
+                    'hostile': True,
+                    'kind': 'prova'
+                }
+        
+        # Frases aleatórias durante a luta
+        if random.random() < 0.005:  # 0.5% de chance por frame
+            phrases = [
+                "A prova final começou!",
+                "Sem consulta!",
+                "Vai reprovar!",
+                "Estude mais!",
+                "Isso é para seu bem!",
+                "UNIMA não forma despreparados!",
+                "Caderno não vai te salvar agora!",
+                "Preste atenção na aula!"
+            ]
+            self.speech_text = random.choice(phrases)
+            self.speech_timer = 60
+        
         if self.speech_timer > 0:
             self.speech_timer -= 1
-
-        self.projectile_cooldown -= 1
-        if self.projectile_cooldown > 0:
-            return None
-        self.projectile_cooldown = FPS * 3
-
-        length = max(1.0, dist)
-        vx = (player_x - self.x) / length
-        vy = (player_y - self.y) / length
-        return {
-            'x': self.x,
-            'y': self.y - self.h * 0.2,
-            'dx': vx * 3.2,
-            'dy': vy * 3.2,
-            'damage': 16,
-            'life': 220,
-            'hostile': True,
-            'type': 'boss_projectile',
-            'kind': random.choice(['prova', 'no_lista']),
-        }
+        
+        return None

@@ -456,3 +456,46 @@ class UI:
 
         hint = self.font.render("[ESC] Continuar  [M] Menu principal", True, UI_TEXT)
         surface.blit(hint, (self.sw // 2 - hint.get_width() // 2, self.sh // 2 + 10))
+
+    def draw_victory(self, surface, player, game_time):
+        """Draw victory screen when boss is defeated."""
+        overlay = pygame.Surface((self.sw, self.sh), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 200))
+        surface.blit(overlay, (0, 0))
+        
+        title1 = self.font_title.render("PARABÉNS!", True, UI_GOLD)
+        title2 = self.font_title.render("VOCÊ FOI APROVADO!", True, UI_GOLD)
+        
+        surface.blit(title1, (self.sw // 2 - title1.get_width() // 2, 80))
+        surface.blit(title2, (self.sw // 2 - title2.get_width() // 2, 140))
+        
+        sub = self.font_lg.render("Professor Vital foi derrotado!", True, UI_ACCENT)
+        surface.blit(sub, (self.sw // 2 - sub.get_width() // 2, 200))
+        
+        minutes = game_time // (60 * 60)
+        seconds = (game_time // 60) % 60
+        
+        stats = [
+            f"Tempo sobrevivido: {minutes:02d}:{seconds:02d}",
+            f"Zumbis abatidos: {player.kills}",
+            f"Nível alcançado: {player.level}",
+            f"Dano total: {player.total_damage_dealt}",
+        ]
+        
+        for i, s in enumerate(stats):
+            txt = self.font.render(s, True, UI_TEXT)
+            surface.blit(txt, (self.sw // 2 - txt.get_width() // 2, 260 + i * 25))
+        
+        approval = self.font_lg.render("VOCÊ É UM VERDADEIRO SOBREVIVENTE!", True, UI_RED)
+        surface.blit(approval, (self.sw // 2 - approval.get_width() // 2, 380))
+        
+        opts = [
+            "[ENTER] Jogar novamente",
+            "[ESC] Menu principal"
+        ]
+        for i, o in enumerate(opts):
+            txt = self.font.render(o, True, UI_GOLD)
+            surface.blit(txt, (self.sw // 2 - txt.get_width() // 2, 440 + i * 30))
+        
+        credits = self.font_sm.render("UNIMA Afya - Formando sobreviventes desde 2025", True, (80, 80, 100))
+        surface.blit(credits, (self.sw // 2 - credits.get_width() // 2, self.sh - 40))
