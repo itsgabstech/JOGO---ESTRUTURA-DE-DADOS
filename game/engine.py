@@ -504,24 +504,9 @@ class Game:
                             if self.player.add_xp(enemy.xp_value):
                                 self._trigger_level_up()
 
-<<<<<<< HEAD
                         if b in self.bullets:
                             self.bullets.remove(b)
                         break
-=======
-                        # Rola uma chance adicional (além do loot normal) para forçar
-                        # mais sustentabilidade de munição ao longo da partida.
-                        if random.random() < AMMO_DROP_CHANCE_ON_KILL:
-                            self.loot_drops.append(LootDrop(enemy.x, enemy.y, 'ammo'))
-
-                        # Roll loot
-                        loot = roll_loot(enemy.x, enemy.y)
-                        if loot:
-                            self.loot_drops.append(loot)
-                        # XP
-                        if self.player.add_xp(enemy.xp_value):
-                            self._trigger_level_up()
->>>>>>> 9a7029403964393d1f206c1e06eee875ebfbe1bc
 
 
         # Update enemies
