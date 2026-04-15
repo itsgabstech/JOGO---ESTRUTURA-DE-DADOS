@@ -8,7 +8,7 @@ import math
 from game import player
 from game.config import *
 from game.player import Player
-from game.enemies import Enemy, EnemySpawner
+from game.enemies import Enemy, EnemySpawner, ProfessorVital
 from game.campus_map import generate_campus_map, get_spawn_points
 from game.loot import LootDrop, roll_loot, try_pickup, try_equip_weapon
 from game.effects import EffectsManager
@@ -60,10 +60,13 @@ class Game:
         self.player = None
         self.enemies = []
         self.bullets = []
+        self.enemy_projectiles = []
         self.loot_drops = []
         self.spawner = None
         self.game_time = 0
         self.nearby_weapon = None
+        self.boss_spawned = False
+        self.boss_score_threshold = 180
 
         # Upgrade selection
         self.upgrade_options = []
@@ -184,10 +187,12 @@ class Game:
         self.player.combat_mode = self.combat_mode
         self.enemies = []
         self.bullets = []
+        self.enemy_projectiles = []
         self.loot_drops = []
         self.spawner = EnemySpawner()
         self.effects = EffectsManager()
         self.game_time = 0
+        self.boss_spawned = False
         self.phase = 1
         self.phase_message_timer = 0
         self.phase_message_text = ""
@@ -483,7 +488,9 @@ class Game:
                     dx = b['x'] - enemy.x
                     dy = b['y'] - enemy.y
                     hit_distance = 10 if b.get('type') == 'melee' else 7
-                    if abs(dx) < hit_distance and abs(dy) < hit_distance:
+                    hit_x = max(hit_distance, int(enemy.w * 0.45))
+                    hit_y = max(hit_distance, int(enemy.h * 0.45))
+                    if abs(dx) < hit_x and abs(dy) < hit_y:
                         killed = enemy.take_damage(b['damage'])
                         self.player.total_damage_dealt += b['damage']
                         self.effects.add_damage_number(enemy.x, enemy.y, b['damage'])
@@ -510,17 +517,38 @@ class Game:
 
 
         # Update enemies
+        self._try_spawn_professor_vital()
         self.spawner.update(self.player.x, self.player.y,
                             self.enemies, self.tilemap)
 
         for enemy in self.enemies:
-            enemy.update(self.player.x, self.player.y,
-                        self.tilemap, self.enemies)
+            projectile = enemy.update(self.player.x, self.player.y,
+                                      self.tilemap, self.enemies)
+            if projectile:
+                self.enemy_projectiles.append(projectile)
             if enemy.alive and enemy.collides_with_player(self.player):
                 self.player.take_damage(enemy.damage)
                 if not self.player.alive:
                     break
                 self.effects.shake(3, 6)
+
+        # Update hostile projectiles from boss
+        for proj in self.enemy_projectiles[:]:
+            proj['x'] += proj['dx']
+            proj['y'] += proj['dy']
+            proj['life'] -= 1
+            if proj['life'] <= 0:
+                self.enemy_projectiles.remove(proj)
+                continue
+
+            hit_x = abs(proj['x'] - self.player.x) < 8
+            hit_y = abs(proj['y'] - self.player.y) < 8
+            if hit_x and hit_y:
+                self.player.take_damage(proj['damage'])
+                self.enemy_projectiles.remove(proj)
+                if not self.player.alive:
+                    break
+                self.effects.shake(4, 7)
 
         # Clean dead enemies (after fade)
         self.enemies = [e for e in self.enemies
@@ -594,7 +622,7 @@ class Game:
             shake = self.effects.get_shake_offset()
             self.renderer.draw_world(
                 self.screen, self.tilemap, self.player,
-                self.enemies, self.bullets, self.loot_drops,
+                self.enemies, self.bullets + self.enemy_projectiles, self.loot_drops,
                 self.effects, shake)
 
             # Calcular enemy_count e draw HUD
@@ -645,3 +673,28 @@ class Game:
                                        self.game_time)
 
         pygame.display.flip()
+
+    def _try_spawn_professor_vital(self, force=False):
+        """Spawn final boss by score or by reaching final map area."""
+        if self.boss_spawned or not self.player or not self.player.alive:
+            return
+
+        score = self.player.kills * 10
+        reached_final_area = (
+            self.player.x > MAP_PX_W * 0.82 and
+            self.player.y > MAP_PX_H * 0.72
+        )
+        if not force and score < self.boss_score_threshold and not reached_final_area:
+            return
+
+        spawn_x = min(MAP_PX_W - TILE_SIZE * 3, self.player.x + 140)
+        spawn_y = min(MAP_PX_H - TILE_SIZE * 3, self.player.y + 100)
+        from game.campus_map import get_walkable
+        if not get_walkable(self.tilemap, spawn_x, spawn_y):
+            spawn_x = self.player.x + 60
+            spawn_y = self.player.y + 60
+
+        self.enemies.append(ProfessorVital(spawn_x, spawn_y))
+        self.boss_spawned = True
+        print("PROFESSOR VITAL: EU SOU O BOSS!")
+        print("A prova final começou! Aqui é sem consulta!")
