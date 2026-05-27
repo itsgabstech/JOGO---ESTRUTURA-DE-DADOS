@@ -78,11 +78,10 @@ LOOT_NAMES = {
     'weapon': 'Arma',
 }
 LOOT_DESCRIPTIONS = {
-    'ammo_pack': 'Recarrega a arma atual',
-    'health': 'Restaura 25 HP',
-    'xp': '+XP bônus',
     'ammo_pack': '+60 munição para arma atual',
-    'weapon': 'Nova arma',
+    'health':    'Restaura 25 HP  [E para usar]',
+    'xp':        '+XP bônus',
+    'weapon':    'Nova arma  [Q para equipar]',
 }
 LOOT_STACKABLE = {'ammo', 'health', 'xp'}
 # Munição recebida ao encostar no item de munição no mapa.

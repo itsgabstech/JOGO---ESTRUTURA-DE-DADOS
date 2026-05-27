@@ -205,10 +205,21 @@ def try_pickup(player, loot_drops, game_ref=None):
 
         # ── KIT MEDICO ─────────────────────────────────────────
         elif data == 'health':
-            player.heal(20)
+            # Tenta adicionar ao inventário (HashMap); usa direto se cheio
+            health_item = {
+                'type': 'health',
+                'name': 'Kit Médico',
+                'desc': 'Restaura 25 HP  [E para usar]',
+                'count': 1,
+            }
+            added = player.add_to_inventory(health_item)
+            if not added:
+                player.heal(20)
+                print("[LOOT] +20 HP (inventário cheio, curado automaticamente)")
+            else:
+                print("[LOOT] Kit Médico → inventário  [I] para abrir")
             drop.alive = False
             collected.append(drop)
-            print("[LOOT] +20 HP")
 
         # ── XP ────────────────────────────────────────────────
         elif data == 'xp':

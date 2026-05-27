@@ -227,77 +227,172 @@ class UI:
                 f"{label} {int(value)}/{int(max_value)}", True, UI_TEXT)
             surface.blit(txt, (x + 3, y - 1))
 
-    def draw_inventory(self, surface, player):
-        """Draw inventory screen overlay."""
-        # Background overlay
-        overlay = pygame.Surface((self.sw, self.sh), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 150))
-        surface.blit(overlay, (0, 0))
+    # ── Constantes de layout do inventário (compartilhadas com engine) ───────
 
-        # Inventory panel
-        panel_w = 340
-        panel_h = 320
-        px = self.sw // 2 - panel_w // 2
-        py = self.sh // 2 - panel_h // 2
+    INV_PANEL_W  = 360
+    INV_PANEL_H  = 340
+    INV_SLOT_SZ  = 36
+    INV_MARGIN   = 6
 
-        panel = generate_ui_panel(panel_w, panel_h, 230)
-        surface.blit(panel, (px, py))
+    def _inv_layout(self):
+        """Retorna (px, py, grid_x, grid_y) do painel do inventário."""
+        px     = self.sw // 2 - self.INV_PANEL_W // 2
+        py     = self.sh // 2 - self.INV_PANEL_H // 2
+        grid_x = px + (self.INV_PANEL_W - 4 * (self.INV_SLOT_SZ + self.INV_MARGIN)) // 2
+        grid_y = py + 36
+        return px, py, grid_x, grid_y
 
-        # Title
-        title = self.font_lg.render("INVENTÁRIO", True, UI_GOLD)
-        surface.blit(title, (px + panel_w // 2 - title.get_width() // 2, py + 8))
+    def get_slot_at(self, mouse_pos: tuple) -> 'int | None':
+        """
+        Retorna o índice do slot sob o cursor do mouse, ou None.
 
-        # Slots grid: 4 columns x 4 rows
-        slot_size = 36
-        margin = 6
-        grid_x = px + (panel_w - 4 * (slot_size + margin)) // 2
-        grid_y = py + 40
+        Usado pelo engine para mapear cliques/solturas de mouse
+        a posições da grade durante o drag-and-drop.
+        """
+        mx, my = mouse_pos
+        _, _, grid_x, grid_y = self._inv_layout()
+        sz  = self.INV_SLOT_SZ
+        mar = self.INV_MARGIN
 
         for i in range(PLAYER_INV_SIZE):
             row = i // 4
             col = i % 4
-            sx = grid_x + col * (slot_size + margin)
-            sy = grid_y + row * (slot_size + margin)
+            sx  = grid_x + col * (sz + mar)
+            sy  = grid_y + row * (sz + mar)
+            if sx <= mx < sx + sz and sy <= my < sy + sz:
+                return i
+        return None
 
-            # Draw slot
-            slot_surf = self.inv_slot_sel if i == player.selected_slot else self.inv_slot
-            scaled_slot = pygame.transform.scale(slot_surf, (slot_size, slot_size))
+    def draw_inventory(self, surface, player):
+        """
+        Exibe o inventário do jogador com suporte a drag-and-drop.
+
+        Estruturas envolvidas:
+          • HashInventory  → dados dos itens (nome, qtd, tipo)
+          • SlotList       → ordem visual dos slots
+          • player._get_ordered_slots() combina as duas para renderização
+
+        Feedback visual do drag-and-drop:
+          • Slot de origem: borda laranja + ícone semitransparente
+          • Slot sob o cursor: borda dourada mais espessa
+          • "Fantasma" do item segue o mouse
+        """
+        # ── Overlay escuro ────────────────────────────────────────────────────
+        overlay = pygame.Surface((self.sw, self.sh), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 150))
+        surface.blit(overlay, (0, 0))
+
+        # ── Painel ────────────────────────────────────────────────────────────
+        px, py, grid_x, grid_y = self._inv_layout()
+        panel = generate_ui_panel(self.INV_PANEL_W, self.INV_PANEL_H, 230)
+        surface.blit(panel, (px, py))
+
+        # ── Título + contador ─────────────────────────────────────────────────
+        inv_count = player.inventory.item_count
+        inv_max   = player.inventory.max_items
+        title_str = f"INVENTÁRIO  ({inv_count}/{inv_max})"
+        title = self.font_lg.render(title_str, True, UI_GOLD)
+        surface.blit(title, (px + self.INV_PANEL_W // 2 - title.get_width() // 2, py + 8))
+
+        # ── Determina slot sob o mouse (para highlight durante drag) ──────────
+        mouse_hover = None
+        if player.is_dragging:
+            mouse_hover = self.get_slot_at(player.drag_pos)
+
+        # ── Slots: SlotList define a ordem; HashMap fornece os dados ──────────
+        slots = player._get_ordered_slots()
+        sz    = self.INV_SLOT_SZ
+        mar   = self.INV_MARGIN
+
+        for i in range(PLAYER_INV_SIZE):
+            row = i // 4
+            col = i % 4
+            sx  = grid_x + col * (sz + mar)
+            sy  = grid_y + row * (sz + mar)
+
+            is_source = player.is_dragging and i == player.drag_source
+            is_hover  = player.is_dragging and i == mouse_hover
+            is_sel    = (i == player.selected_slot) and not player.is_dragging
+
+            # ─ Fundo do slot ─
+            slot_surf   = self.inv_slot_sel if is_sel else self.inv_slot
+            scaled_slot = pygame.transform.scale(slot_surf, (sz, sz))
             surface.blit(scaled_slot, (sx, sy))
 
-            # Draw item if present
-            item = player.inventory[i]
+            # ─ Borda especial durante drag ─
+            if is_source:
+                pygame.draw.rect(surface, (255, 140, 0), (sx, sy, sz, sz), 2)   # laranja
+            elif is_hover:
+                pygame.draw.rect(surface, UI_GOLD,       (sx, sy, sz, sz), 3)   # dourado
+
+            item = slots[i]
             if item:
                 loot_type = item.get('type', 'ammo_pack')
-                loot_img = self.loot_sprites.get(loot_type)
+                loot_img  = self.loot_sprites.get(loot_type)
+
                 if loot_img:
-                    surface.blit(loot_img, (sx + 6, sy + 6))
-                # Count
-                count = item.get('count', 1)
-                if count > 1:
-                    ct = self.font_sm.render(str(count), True, UI_TEXT)
-                    surface.blit(ct, (sx + slot_size - ct.get_width() - 2,
-                                      sy + slot_size - 12))
+                    if is_source:
+                        # Item sendo arrastado: mostra semitransparente no slot de origem
+                        ghost = loot_img.copy()
+                        ghost.set_alpha(80)
+                        surface.blit(ghost, (sx + 6, sy + 6))
+                    else:
+                        surface.blit(loot_img, (sx + 6, sy + 6))
 
-        # Selected item info
-        sel_item = player.inventory[player.selected_slot]
-        if sel_item:
-            info_y = grid_y + 4 * (slot_size + margin) + 10
-            name_text = self.font.render(sel_item.get('name', ''), True, UI_GOLD)
-            surface.blit(name_text, (px + 20, info_y))
-            desc_text = self.font_sm.render(sel_item.get('desc', ''), True, UI_TEXT)
-            surface.blit(desc_text, (px + 20, info_y + 18))
+                qty = item.get('quantity', 1)
+                if qty > 1:
+                    ct = self.font_sm.render(str(qty), True, UI_TEXT)
+                    surface.blit(ct, (sx + sz - ct.get_width() - 2, sy + sz - 12))
 
-            # Controls
-            ctrl = self.font_sm.render(
-                "[E] Usar  [Q] Descartar  [←→↑↓] Navegar", True, UI_BLUE)
-            surface.blit(ctrl, (px + 20, info_y + 36))
+        # ── "Fantasma" segue o mouse durante o drag ───────────────────────────
+        if player.is_dragging and player.drag_item:
+            loot_type = player.drag_item.get('type', 'ammo_pack')
+            loot_img  = self.loot_sprites.get(loot_type)
+            if loot_img:
+                # Ícone ampliado (48×48) centralizado no cursor
+                big = pygame.transform.scale(loot_img, (48, 48))
+                mx, my = player.drag_pos
+                surface.blit(big, (mx - 24, my - 24))
+
+                # Nome do item ao lado do cursor
+                drag_name = self.font_sm.render(
+                    player.drag_item.get('name', ''), True, UI_GOLD)
+                surface.blit(drag_name, (mx + 28, my - 7))
+
+        # ── Painel de informações do item selecionado ─────────────────────────
+        info_y = grid_y + 4 * (sz + mar) + 10
+
+        # Durante drag mostra info do item sendo arrastado; senão do selecionado
+        if player.is_dragging and player.drag_item:
+            info_item = player.drag_item
         else:
-            info_y = grid_y + 4 * (slot_size + margin) + 10
+            info_item = slots[player.selected_slot]
+
+        if info_item:
+            name_text = self.font.render(info_item.get('name', ''), True, UI_GOLD)
+            surface.blit(name_text, (px + 16, info_y))
+
+            qty_text = self.font_sm.render(
+                f"Quantidade: {info_item.get('quantity', 1)}", True, UI_ACCENT)
+            surface.blit(qty_text, (px + 16, info_y + 18))
+
+            desc_text = self.font_sm.render(info_item.get('desc', ''), True, UI_TEXT)
+            surface.blit(desc_text, (px + 16, info_y + 32))
+
+            if player.is_dragging:
+                hint = self.font_sm.render(
+                    "Solte sobre outro slot para mover o item", True, (255, 180, 60))
+            else:
+                hint = self.font_sm.render(
+                    "[E] Usar  [Q] Descartar  [←→↑↓] Navegar  [clique+arraste] Mover",
+                    True, UI_BLUE)
+            surface.blit(hint, (px + 16, info_y + 50))
+        else:
             empty = self.font_sm.render("Slot vazio", True, (100, 100, 120))
-            surface.blit(empty, (px + 20, info_y))
-            ctrl = self.font_sm.render(
-                "[I] Fechar inventário", True, UI_BLUE)
-            surface.blit(ctrl, (px + 20, info_y + 20))
+            surface.blit(empty, (px + 16, info_y))
+            ctrl  = self.font_sm.render(
+                "[I] Fechar  |  Clique e arraste para reorganizar", True, UI_BLUE)
+            surface.blit(ctrl, (px + 16, info_y + 20))
 
     def draw_upgrade_choice(self, surface, upgrades, selected):
         """Draw level-up upgrade selection."""

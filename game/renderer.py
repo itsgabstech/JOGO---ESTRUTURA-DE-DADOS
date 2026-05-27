@@ -189,14 +189,16 @@ class Renderer:
         self.default_bullet = create_bullet_sprite()
         
         # Bullet sprites para diferentes tipos de arma
+        # 'grenade' é o tipo do projétil do lançador de granadas (weapon type = grenade_launcher)
         self.bullet_sprites = {
-            'normal': create_bullet_sprite(),
-            'shotgun': self._create_shotgun_pellet(),
-            'explosive': self._create_rocket_sprite(),
-            'fire': self._create_fire_sprite(),
-            'mine': self._create_mine_sprite(),
-            'melee': self._create_slash_sprite(),
-            'grenade_launcher': self._create_grenade_sprite()
+            'normal':           create_bullet_sprite(),
+            'shotgun':          self._create_shotgun_pellet(),
+            'explosive':        self._create_rocket_sprite(),
+            'fire':             self._create_fire_sprite(),
+            'mine':             self._create_mine_sprite(),
+            'melee':            self._create_slash_sprite(),
+            'grenade':          self._create_grenade_sprite(),       # projétil do lançador
+            'grenade_launcher': self._create_grenade_sprite(),       # alias de segurança
         }
 
         # Loot - incluir TODOS os tipos

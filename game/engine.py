@@ -271,6 +271,82 @@ class Game:
             if event.type == pygame.KEYDOWN:
                 self._handle_key(event.key)
 
+            # ── Drag-and-drop no inventário ───────────────────────────────────
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                self._handle_inv_mouse_down(event.pos)
+
+            elif event.type == pygame.MOUSEMOTION:
+                self._handle_inv_mouse_motion(event.pos)
+
+            elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                self._handle_inv_mouse_up(event.pos)
+
+    def _handle_inv_mouse_down(self, pos):
+        """
+        Inicia o drag-and-drop ao clicar sobre um item no inventário.
+
+        Fluxo:
+          1. Verifica se o estado é STATE_INVENTORY
+          2. Converte posição do mouse em índice de slot (via UI.get_slot_at)
+          3. Se o slot tiver item → registra estado de drag no player
+        """
+        if self.state != STATE_INVENTORY or not self.player:
+            return
+
+        slot = self.ui.get_slot_at(pos)
+        if slot is None:
+            return
+
+        slots = self.player._get_ordered_slots()
+        item  = slots[slot] if slot < len(slots) else None
+        if item is None:
+            return
+
+        # Inicia arraste: guarda origem, item e posição do mouse
+        self.player.is_dragging = True
+        self.player.drag_source = slot
+        self.player.drag_item   = item
+        self.player.drag_pos    = pos
+        print(f"[DRAG] Início: slot {slot} ({item.get('name','?')})")
+
+    def _handle_inv_mouse_motion(self, pos):
+        """Atualiza a posição do cursor enquanto o jogador arrasta um item."""
+        if self.state == STATE_INVENTORY and self.player and self.player.is_dragging:
+            self.player.drag_pos = pos
+
+    def _handle_inv_mouse_up(self, pos):
+        """
+        Finaliza o drag-and-drop ao soltar o botão do mouse.
+
+        Fluxo:
+          1. Verifica se há um drag ativo
+          2. Converte posição de soltura em índice de slot
+          3. Se destino ≠ origem → chama player.swap_slots()
+             (SlotList.swap trocas os item_ids nos nós da lista encadeada)
+          4. Atualiza selected_slot para o destino
+          5. Limpa o estado de drag
+        """
+        if self.state != STATE_INVENTORY or not self.player:
+            return
+        if not self.player.is_dragging:
+            return
+
+        target = self.ui.get_slot_at(pos)
+
+        if target is not None and target != self.player.drag_source:
+            src_name = self.player.drag_item.get('name', '?')
+            self.player.swap_slots(self.player.drag_source, target)
+            self.player.selected_slot = target
+            print(f"[DRAG] Drop: '{src_name}' → slot {target}")
+        else:
+            print(f"[DRAG] Cancelado (mesmo slot ou fora da grade)")
+
+        # Limpa estado de drag
+        self.player.is_dragging = False
+        self.player.drag_source = None
+        self.player.drag_item   = None
+        self.player.drag_pos    = (0, 0)
+
     def _handle_key(self, key):
         """Handle key press based on state."""
 

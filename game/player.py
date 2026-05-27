@@ -6,16 +6,11 @@ import pygame
 import math
 from game.config import *
 from game.weapons_data import WEAPONS_DATA, AMMO_TYPES, BULLET_CONFIG
+from game.inventory import HashInventory, SlotList, make_item_id
 
 
 class Player:
     def __init__(self, x, y):
-
-        self.slot_1 = WEAPONS_DATA["faquinha"].copy()  # Começa com faquinha
-        self.slot_2 = None
-        self.active_slot = 1
-        print(f"[INIT] Arma inicial: {self.slot_1['name']}")  # Debug
-
         self.x = float(x)
         self.y = float(y)
         self.w = 12
@@ -48,24 +43,42 @@ class Player:
         # Combat mode
         self.combat_mode = COMBAT_AUTO
 
-        # Inventory (apenas para consumíveis)
-        self.inventory = [None] * PLAYER_INV_SIZE
-        self.selected_slot = 0
-        
-        # NOVO SISTEMA DE ARMAS
-        self.slot_1 = WEAPONS_DATA["faquinha"].copy()  # Começa com faquinha
+        # ── Sistema de Armas ──────────────────────────────────────────────────
+        self.slot_1 = WEAPONS_DATA["faquinha"].copy()   # Começa com faquinha
         self.slot_2 = None
         self.active_slot = 1
         self.pickup_cooldown = 0
-        
+        print(f"[INIT] Arma inicial: {self.slot_1['name']}")
+
+        # ── Munição ───────────────────────────────────────────────────────────
         self.ammo = {
-            "shells": 0,
+            "shells":     0,
             "rifle_ammo": 0,
-            "rockets": 0,
-            "molotovs": 0,
-            "mines": 0,
-            "grenades": 0
+            "rockets":    0,
+            "molotovs":   0,
+            "mines":      0,
+            "grenades":   0,
         }
+
+        # ── Inventário de Consumíveis ─────────────────────────────────────────
+        # Estrutura 1: HashInventory — armazena os DADOS dos itens
+        #   Chave: item_id (string)  |  Valor: nome, quantidade, tipo, desc
+        #   Acesso por ID: O(1) amortizado
+        self.inventory = HashInventory(max_items=PLAYER_INV_SIZE, num_buckets=32)
+
+        # Estrutura 2: SlotList (Lista Duplamente Encadeada) — controla a ORDEM
+        #   Cada nó guarda o item_id na posição visual correspondente da grade
+        #   Usado para drag-and-drop: swap troca IDs entre nós em O(n)
+        self.slot_order = SlotList(PLAYER_INV_SIZE)
+
+        # Seleção por teclado
+        self.selected_slot = 0
+
+        # ── Estado do drag-and-drop ───────────────────────────────────────────
+        self.is_dragging   = False          # True enquanto arrasta
+        self.drag_source   = None           # índice de origem do arraste
+        self.drag_item     = None           # dict do item sendo arrastado
+        self.drag_pos      = (0, 0)         # posição atual do mouse (tela)
 
     def get_active_weapon(self):
         """Retorna a arma do slot ativo"""
@@ -393,45 +406,139 @@ class Player:
             self.pickup_range *= (1 + val)
             print(f"[UPGRADE] Alcance de coleta +{int(val*100)}%")
 
-    def add_to_inventory(self, item):
-        """Adiciona item ao inventário"""
-        for i in range(PLAYER_INV_SIZE):
-            if self.inventory[i] is None:
-                item['count'] = item.get('count', 1)
-                self.inventory[i] = item
-                return True
-        return False
+        elif stat == 'ammo':
+            # Adiciona munição para todas as armas equipadas
+            amount = int(val)
+            for ammo_type in self.ammo:
+                self.ammo[ammo_type] += amount
+            print(f"[UPGRADE] +{amount} munição para todos os tipos")
 
-    def use_item(self, slot_index):
-        """Usa item do inventário"""
-        if slot_index < 0 or slot_index >= PLAYER_INV_SIZE:
+    # ── Inventário (HashMap + SlotList) ──────────────────────────────────────
+
+    def _get_ordered_slots(self) -> list:
+        """
+        Retorna a lista de itens na ordem definida pela SlotList.
+
+        Fluxo:
+          1. SlotList.to_list()  → sequência de item_ids (com None)
+          2. HashInventory.get_by_id(id) → dados de cada item
+          3. Retorna lista de dicts (None onde slot está vazio)
+
+        As duas estruturas atuam juntas:
+          • SlotList  → ONDE cada item está na grade (ordem visual)
+          • HashInventory → O QUE é cada item (nome, qtd, tipo)
+        """
+        result = []
+        for item_id in self.slot_order.to_list():
+            if item_id is None:
+                result.append(None)
+            else:
+                node = self.inventory.get_by_id(item_id)
+                result.append(node.to_dict() if node else None)
+        return result
+
+    def add_to_inventory(self, item: dict) -> bool:
+        """
+        Adiciona item ao inventário.
+
+        Regras:
+          • Item já existe (mesmo ID)  → apenas aumenta quantidade no HashMap.
+            A SlotList não muda (o slot já tem o ID).
+          • Item novo + espaço livre   → registra no HashMap e ocupa um slot
+            vazio na SlotList.
+          • Item novo + inventário cheio → retorna False.
+
+        Retorna True se armazenado com sucesso.
+        """
+        item_id  = make_item_id(item)
+        name     = item.get('name', item.get('type', 'Item'))
+        quantity = item.get('count', item.get('quantity', 1))
+        extra    = {'type': item.get('type', 'item'), 'desc': item.get('desc', '')}
+        for key in item:
+            if key not in ('id', 'name', 'quantity', 'count', 'type', 'desc'):
+                extra[key] = item[key]
+
+        if self.inventory.has_item(item_id):
+            # Item já existe: empilha quantidade no HashMap; SlotList inalterada
+            self.inventory.add_item(item_id, name, quantity, extra)
+            return True
+
+        # Item novo: precisa de um slot vazio na SlotList
+        slot_idx = self.slot_order.find_first_empty()
+        if slot_idx == -1:
+            return False   # inventário cheio
+
+        # Registra nas duas estruturas
+        self.inventory.add_item(item_id, name, quantity, extra)
+        self.slot_order.set(slot_idx, item_id)
+        return True
+
+    def use_item(self, slot_index: int) -> bool:
+        """
+        Usa o item no slot slot_index da grade.
+
+        A posição é resolvida via _get_ordered_slots() (que combina
+        SlotList + HashInventory). Após o uso, se a quantidade chegar
+        a zero o ID é removido de ambas as estruturas.
+        """
+        slots = self._get_ordered_slots()
+
+        if slot_index < 0 or slot_index >= len(slots):
             return False
-        item = self.inventory[slot_index]
+        item = slots[slot_index]
         if item is None:
             return False
 
-        t = item['type']
-        if t == 'health':
+        item_type = item.get('type', '')
+
+        if item_type == 'health':
             if self.hp >= self.max_hp:
                 return False
             self.heal(25)
-        elif t == 'ammo_pack':
+
+        elif item_type == 'ammo_pack':
             current = self.get_active_weapon()
             if current and current['name'] != "Faquinha":
                 self.add_ammo(current['name'], 30)
+            else:
+                return False
+
         else:
             return False
 
-        count = item.get('count', 1)
-        if count <= 1:
-            self.inventory[slot_index] = None
-        else:
-            item['count'] = count - 1
+        item_id = item['id']
+        self.inventory.remove_item(item_id, 1)
+        # Se o item foi completamente consumido, libera o slot na SlotList
+        if not self.inventory.has_item(item_id):
+            self.slot_order.clear_id(item_id)
         return True
 
-    def drop_item(self, slot_index):
-        if 0 <= slot_index < PLAYER_INV_SIZE:
-            self.inventory[slot_index] = None
+    def drop_item(self, slot_index: int):
+        """
+        Descarta completamente o item no slot slot_index.
+        Remove das duas estruturas: HashMap e SlotList.
+        """
+        slots = self._get_ordered_slots()
+        if 0 <= slot_index < len(slots) and slots[slot_index] is not None:
+            item_id = slots[slot_index]['id']
+            self.inventory.remove_item(item_id)   # remove do HashMap
+            self.slot_order.clear_id(item_id)     # libera slot na SlotList
+
+    def swap_slots(self, idx_a: int, idx_b: int):
+        """
+        Troca dois itens de posição na grade do inventário.
+
+        Delega para SlotList.swap(), que percorre a lista até os nós e
+        troca apenas os item_ids — os ponteiros prev/next ficam intactos.
+        O HashMap não é alterado: os dados permanecem no mesmo nó hash.
+
+        Chamado pelo drag-and-drop ao soltar um item em outro slot.
+        """
+        if self.slot_order.swap(idx_a, idx_b):
+            slots = self._get_ordered_slots()
+            name_a = (slots[idx_a] or {}).get('name', 'vazio')
+            name_b = (slots[idx_b] or {}).get('name', 'vazio')
+            print(f"[INV] Slot {idx_a} ({name_b}) ↔ Slot {idx_b} ({name_a})")
 
     @property
     def rect(self):
